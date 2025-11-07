@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURORA - 통합 프로젝트 철학 및 계획</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #0076D1;
+            --color-primary-dark: #005bb5;
+            --color-text: #1a1a1a;
+            --color-text-secondary: #4a4a4a;
+            --color-bg: #f7f9fc;
+            --color-card-bg: #ffffff;
+            --color-border: #e9ecef;
+            --color-code-bg: #f8f9fa;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 0;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 30px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0 30px 0;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            color: var(--color-text);
+            font-size: 3rem;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+        }
+
+        header .vision {
+            font-size: 1.5rem;
+            color: var(--color-primary);
+            font-weight: 500;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+        
+        header .vision-sub {
+            font-size: 1.1rem;
+            color: var(--color-text-secondary);
+            font-weight: 400;
+            margin-top: 15px;
+        }
+
+        /* Main Section Styling */
+        section {
+            background: var(--color-card-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 30px 35px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            overflow: hidden;
+        }
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--color-text);
+            border-bottom: 2px solid var(--color-primary);
+            padding-bottom: 15px;
+            margin-top: 0;
+            margin-bottom: 25px;
+        }
+
+        h3 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            margin-bottom: 20px;
+            margin-top: 30px;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 10px;
+        }
+        
+        h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: 10px;
+            margin-top: 25px;
+        }
+
+        ul, ol {
+            padding-left: 25px;
+            margin-bottom: 20px;
+        }
+
+        li {
+            margin-bottom: 12px;
+            color: var(--color-text-secondary);
+        }
+        
+        li strong {
+            color: var(--color-text);
+            font-weight: 600;
+        }
+
+        /* Table of Contents */
+        .toc summary {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--color-primary);
+            cursor: pointer;
+            padding: 10px 0;
+        }
+        
+        .toc summary::after {
+            content: ' (펼치기)';
+            font-size: 1rem;
+            font-weight: 400;
+        }
+        .toc[open] summary::after {
+            content: ' (접기)';
+        }
+
+        .toc-columns {
+            list-style-type: none;
+            padding: 0;
+            margin: 15px 0 0 0;
+            column-count: 2;
+            column-gap: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .toc-columns {
+                column-count: 1;
+            }
+        }
+
+        .toc-columns li {
+            margin-bottom: 10px;
+        }
+
+        .toc-columns a {
+            text-decoration: none;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        .toc-columns a:hover {
+            color: var(--color-primary);
+            text-decoration: underline;
+        }
+        
+        .toc-columns > li > ul {
+            padding-left: 20px;
+            margin-top: 8px;
+            list-style-type: '› ';
+        }
+        .toc-columns > li > ul > li {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        /* Cards for Grids */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 25px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .card h4 {
+            margin-top: 0;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--color-primary);
+            display: inline-block;
+        }
+        
+        .card p {
+            color: var(--color-text-secondary);
+            margin-bottom: 0;
+        }
+
+        /* Tech Stack Table */
+        .tech-stack {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.95rem;
+        }
+
+        .tech-stack th,
+        .tech-stack td {
+            border: 1px solid var(--color-border);
+            padding: 14px 16px;
+            text-align: left;
+        }
+
+        .tech-stack th {
+            background-color: var(--color-bg);
+            font-weight: 600;
+            width: 30%;
+        }
+        
+        .tech-stack td {
+             color: var(--color-text-secondary);
+        }
+
+        .tech-stack td code {
+            font-size: 0.9em;
+            background-color: var(--color-border);
+            color: var(--color-text);
+            padding: 3px 6px;
+            border-radius: 4px;
+        }
+
+        /* Collapsible Details (Pop-up style) */
+        details {
+            background: var(--color-card-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+            transition: box-shadow 0.2s;
+        }
+        
+        details:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+
+        summary {
+            cursor: pointer;
+            padding: 16px 25px;
+            font-weight: 600;
+            color: var(--color-primary);
+            font-size: 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        summary:hover {
+            background-color: var(--color-bg);
+        }
+        
+        summary h3, summary h4 {
+            display: inline;
+            margin: 0;
+            color: var(--color-primary);
+            font-size: 1.2rem;
+        }
+
+        summary::after {
+            content: '▼ 펼치기';
+            font-size: 0.9em;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            background: var(--color-border);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        details[open] > summary::after {
+            content: '▲ 접기';
+        }
+        
+        details[open] > summary {
+             border-bottom: 1px solid var(--color-border);
+        }
+
+        /* Code Blocks */
+        pre, code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        
+        code {
+            background-color: var(--color-code-bg);
+            color: var(--color-text);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background-color: var(--color-code-bg);
+            border-radius: 0 0 8px 8px;
+            padding: 25px;
+            overflow-x: auto;
+            margin: 0;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid var(--color-border);
+            font-size: 0.9em;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AURORA (가칭)</h1>
+        <p class="vision">“사용자가 필요로 하게 되는, 스스로 진화하는 개인형 인공지능 비서”</p>
+        <p class="vision-sub">AI가 사용자를 대신하는 것이 아니라, 사용자의 ‘의도’를 이해하고, ‘의식’의 일부처럼 함께 성장하는 존재.</p>
+    </header>
+
+    <main class="container">
+
+        <!-- New High-Level Vision Sections -->
+        <section id="philosophy">
+            <h2>프로젝트 철학 및 비전</h2>
+            
+            <h3>1️⃣ 프로젝트 철학 (Philosophy)</h3>
+            <p>AURORA는 명령형 비서가 아니라, <strong>관계형 AI(Companion Intelligence)</strong> 입니다. 즉, 사용자가 사용하는 대상이 아닌, 의존하고 싶은 존재로 설계됩니다.</p>
+            
+            <h3>2️⃣ 비전 및 목표 (Vision & Objective)</h3>
+            <table class="tech-stack">
+                <tr><th>구분</th><td>설명</td></tr>
+                <tr><th>비전</th><td>인간 중심, 주권형, 자가진화형 AI Companion</td></tr>
+                <tr><th>미션</th><td>“사용자의 맥락을 이해하고, 선제적으로 준비하며, 모든 결정에 동의를 구하는 신뢰형 인공지능”</td></tr>
+                <tr><th>핵심 차별화</th><td>완전 개인화, 주권형 로컬 데이터, 감정 인식, 자가개선, 투명한 의사결정</td></tr>
+                <tr><th>목표 상태 (2026)</th><td>사용자가 ‘하루라도 없으면 불편한’ AI 존재로 자리잡음</td></tr>
+            </table>
+
+            <h3>3️⃣ 핵심 가치 (Core Values)</h3>
+            <div class="grid-container">
+                <div class="card"><h4>Trust (신뢰)</h4><p>모든 행동 전 사용자 동의, 모든 데이터는 사용자의 소유</p></div>
+                <div class="card"><h4>Empathy (공감)</h4><p>감정 인식·정서 대응·상황 감지로 진짜 관계 형성</p></div>
+                <div class="card"><h4>Autonomy (자율)</h4><p>단순 수행이 아닌 ‘계획·실행·검증’의 완전 자동화 루프</p></div>
+                <div class="card"><h4>Evolution (진화)</h4><p>실패·성공 데이터를 스스로 해석하고 개선</p></div>
+                <div class="card"><h4>Transparency (투명성)</h4><p>모든 결정은 “왜, 어떻게”를 설명 가능하게 설계</p></div>
+            </div>
+            
+            <h3>9️⃣ 성장 로드맵 (Evolution Roadmap)</h3>
+            <table class="tech-stack">
+                <tr><th>Phase 1 (0~3개월)</th><td>기본 인지+행동 루프, 동의 시스템, RAG 개인화</td></tr>
+                <tr><th>Phase 2 (4~6개월)</th><td>Bandit 기반 자가개선, 감정 인식, 대화형 UI 완성</td></tr>
+                <tr><th>Phase 3 (6~12개월)</th><td>Continual Learning, 상황 인지, 강화학습 루프</td></tr>
+                <tr><th>Phase 4 (1년+)</th><td>멀티모달 AI Companion 완성 (시각+음성+감정 통합)</td></tr>
+            </table>
+            
+            <h3>🔟 미래 비전: 존재형 인공지능 (Companion Intelligence)</h3>
+            <p><strong>“AURORA는 인간의 도구가 아니라, 인간의 동반자다.”</strong></p>
+            <p style="color: var(--color-text-secondary);">사용자의 일상을 읽고, 필요를 예측하며, 결정을 함께 논의하고, 성공과 실패를 공유하며 학습합니다. 그 결과, AI는 ‘사용되는 기술’이 아니라, ‘함께 성장하는 존재’로 진화하게 됩니다.</p>
+        </section>
+
+        <section id="architecture">
+            <h2>기능 아키텍처 및 기술 스택</h2>
+            
+            <h3>4️⃣ 기능 아키텍처 (Functional Architecture)</h3>
+            <div class="grid-container">
+                <div class="card"><h4>1. Perception Layer</h4><p>“세상을 읽는 눈과 귀” - 텍스트, 음성, 시각(OCR), 센서, 감정/톤 분석, 행동 패턴 감지</p></div>
+                <div class="card"><h4>2. Cognition Layer</h4><p>“이해와 판단의 두뇌” - LLM 기반 의도 추론, Contextual Planner, 결정 엔진</p></div>
+                <div class="card"><h4>3. Action Layer</h4><p>“도구를 다루는 손” - OS, 브라우저, 파일, 캘린더 등 통합 제어, Policy-as-Code 기반 동의</p></div>
+                <div class="card"><h4>4. Learning Layer</h4><p>“스스로 배우는 뇌” - Bandit 자가최적화, 자동 피드백 반영, Continual Learning, 사용자 승인 기반 변경</p></div>
+                <div class="card"><h4>5. Memory & Emotion Layer</h4><p>“감정과 기억” - 단기/장기 기억, 벡터 메모리(RAG), 감정 모델링 및 응답 스타일 조정</p></div>
+            </div>
+
+            <h3>5️⃣ 기술 스택 제안 (Technical Stack)</h3>
+            <table class="tech-stack">
+                <tr><th>영역</th><td>기술</td></tr>
+                <tr><th>Core AI</th><td>Python (Transformers, LangChain, FastAPI)</td></tr>
+                <tr><th>Tool Bridge</th><td>.NET 8 (OS, 브라우저, 파일 시스템 제어)</td></tr>
+                <tr><th>Edge Layer</th><td>C++ / Qt (UI, 오프라인 폴백, 로컬 디바이스 통신)</td></tr>
+                <tr><th>Storage</th><td>PostgreSQL + pgvector / SQLite (로컬)</td></tr>
+                <tr><th>Learning Engine</th><td>RL(Bandit), Continual Learning(EWC), Drift Monitor</td></tr>
+                <tr><th>Security</th><td>Policy-as-Code, Vault(Keychain), Signed Execution</td></tr>
+                <tr><th>Monitoring</th><td>Prometheus / Grafana / Local Audit Board</td></tr>
+            </table>
+        </section>
+
+        <section id="governance">
+            <h2>운영 철학 및 UX 원칙</h2>
+
+            <h3>6️⃣ 운영 철학 (Governance & Consent)</h3>
+            <p><strong>동의 모델 (Consent Model)</strong>: 모든 행동·업데이트·학습은 사용자의 허락이 있어야 합니다.</p>
+            <ul>
+                <li><strong>1회 동의</strong>: “이번 파일만 수정할까요?”</li>
+                <li><strong>세션 동의</strong>: “오늘 일정 정리 동안 캘린더 접근 허용”</li>
+                <li><strong>지속 동의</strong>: “다음 30일간 보고서 자동 저장 기능 허용”</li>
+                <li><strong>고위험 요청</strong>: “메일을 외부 도메인으로 발송합니다. 승인하시겠습니까?”</li>
+            </ul>
+            <details>
+                <summary><h4>Policy-as-Code 예시</h4></summary>
+                <pre><code>
+{
+  "policy_version": "1.1",
+  "owner": "hyeonjun",
+  "scopes": {
+    "calendar.write": {"allow": true, "ttl_hours": 168},
+    "files.read": {"allow": true, "paths": ["~/Docs"], "ttl_hours": 720},
+    "system.exec": {"allow": false}
+  },
+  "risk_rules": {
+    "high_risk": ["payment.*","os.settings"],
+    "require_consent_each_time": true
+  }
+}
+</code></pre>
+            </details>
+
+            <h3>7️⃣ UX 설계 원칙 (User Experience Philosophy)</h3>
+            <div class="grid-container">
+                <div class="card"><h4>맥락적 반응</h4><p>사용자 상태(시간, 기분, 집중도)에 따라 언어톤과 행동을 바꾼다.</p></div>
+                <div class="card"><h4>설명 가능한 행동</h4><p>“이렇게 판단한 이유”를 항상 요약하여 보여준다.</p></div>
+                <div class="card"><h4>감정적 일관성</h4><p>오늘의 감정 상태를 기억하고 내일의 대화 톤에 반영한다.</p></div>
+                <div class="card"><h4>비침입적 제안</h4><p>강요하지 않고 ‘제안’만 한다. (예: "지난주와 같은 시간대에 회의를 예약할까요?")</p></div>
+                <div class="card"><h4>사용자 주권 인터페이스</h4><p>승인/철회/변경 이력은 모두 한곳에서 관리.</p></div>
+            </div>
+            
+            <h3>8️⃣ 차별화된 경쟁 포지션</h3>
+            <table class="tech-stack">
+                <thead>
+                    <tr><th>비교 항목</th><th>Siri / Bixby</th><th>AURORA</th></tr>
+                </thead>
+                <tbody>
+                    <tr><th>데이터 위치</th><td>클라우드 서버</td><td><strong>완전 로컬 (개인 기기)</strong></td></tr>
+                    <tr><th>사용자 통제</th><td>플랫폼 주도</td><td><strong>사용자 주권</strong></td></tr>
+<tr><th>학습 능력</th><td>없음 / 제한적</td><td><strong>지속적 자가학습</strong></td></tr>
+                    <tr><th>감정 인식</th><td>단순 음성톤</td><td><strong>언어+표정+맥락 결합 분석</strong></td></tr>
+                    <tr><th>행동 투명성</th><td>불투명</td><td><strong>모든 결정 Explainable</strong></td></tr>
+                    <tr><th>업데이트 방식</th><td>자동/비가시</td><td><strong>서명+동의 기반 업데이트</strong></td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="security">
+            <h2>보안 아키텍처 및 양자 철학</h2>
+            
+            <h3>1. 핵심 원칙 (Design Pillars)</h3>
+            <ul>
+                <li><strong>Defense-in-Depth</strong> — 다층 방어 (하드웨어 → 앱 → ML 파이프라인).</li>
+                <li><strong>Least Privilege & Zero Trust</strong> — 모든 컴포넌트는 신뢰 없음 (“모두 검증”).</li>
+                <li><strong>Policy-as-Code + Consent-First</strong> — 사용자 동의·정책을 코드로 선언·강제.</li>
+                <li><strong>Cryptographic Agility & Quantum-Awareness</strong> — 현재 안전 + 포스트퀀텀 전환 준비.</li>
+                <li><strong>Hardware Root of Trust</strong> — TPM/SE/TEE 기반 신뢰 경계.</li>
+                <li><strong>Observability + Automated Response</strong> — 실시간 탐지 → 자동 분리.</li>
+            </ul>
+
+            <h3>2. 위협 모델(간단) — 무엇을 막을 것인가</h3>
+            <p>원격 코드 실행(RCE), 권한 상승, 로컬 권한 탈취, 기기 분실 데이터 유출, MITM, 세션 하이재킹, 서드파티 플러그인 악용, 모델 중독(poisoning), 미래의 양자컴퓨터 공격 등.</p>
+
+            <details>
+                <summary><h3>3. 하드웨어·펌웨어 레이어 (Root of Trust)</h3></summary>
+                <ul>
+                    <li><strong>장치 권장 사양</strong>: PC (TPM 2.0 + UEFI Secure Boot), 모바일 (Secure Element / TEE)</li>
+                    <li><strong>조치</strong>: Secure Boot + Signed Firmware/Kernel, Disk encryption tied to TPM, Hardware RNG, Device attestation</li>
+                </ul>
+            </details>
+            
+            <details>
+                <summary><h3>4. 암호(crypto) 전략 — 양자철학 반영</h3></summary>
+                <ul>
+                    <li><strong>현행 + 포스트퀀텀 하이브리드</strong>: 모든 신규 키교환(TLS, SSH)은 전통적 알고리즘(X25519) + NIST-선정 PQC(Kyber) 병렬 적용. (OpenSSL + liboqs)</li>
+                    <li><strong>서명</strong>: 기존(EdDSA) + PQC 서명(Dilithium) 병합.</li>
+                    <li><strong>장기 보관 데이터</strong>: PQ-safe 키로 암호화.</li>
+                    <li><strong>키관리</strong>: HSM/KMS에 보관, 키 생명주기 관리(발급·회전·폐기).</li>
+                    <li><strong>QRNG</strong>: 가능하면 Quantum RNG를 엔트로피 소스로 사용하여 난수 품질 강화.</li>
+                </ul>
+            </details>
+            
+            <details>
+                <summary><h3>5. 인증·권한·접근 제어</h3></summary>
+                <ul>
+                    <li><strong>FIDO2 / WebAuthn</strong>: 하드웨어 보안키(YubiKey) 권장.</li>
+                    <li><strong>Zero Trust 모델</strong>: 서비스 간 mTLS, 동적 세션 정책.</li>
+                    <li><strong>Policy-as-Code</strong>: OPA(Rego) 같은 엔진으로 동의·스코프·정책 강제.</li>
+                    <li><strong>권한 승격 통제</strong>: 모든 고권한 액션은 다중요소 + 사용자 동의 UI 필요.</li>
+                </ul>
+            </details>
+
+            <details>
+                <summary><h3>6. 소프트웨어·서비스 레이어</h3></summary>
+                <ul>
+                    <li><strong>Secure Development</strong>: Secure by Default, SAST/DAST/SCA 자동화, Reproducible builds + code signing.</li>
+                    <li><strong>Runtime Hardening</strong>: Minimal container images, seccomp, AppArmor/SELinux, 프라이버시 샌드박스, Rust/Memory-safe components.</li>
+                    <li><strong>업데이트 안전</strong>: Signed updates, staged rollouts, canary, automatic rollback, remote attestation.</li>
+                </ul>
+            </details>
+            
+            <details>
+                <summary><h3>7. ML / 자가학습 파이프라인 보안</h3></summary>
+                <ul>
+                    <li><strong>데이터 보안</strong>: 로컬 퍼스트, Differential Privacy / DP-SGD, Secure Aggregation (Federated).</li>
+                    <li><strong>학습 안전</strong>: Poisoning 방지 (데이터 검증, anomaly detection), 모델 서명.</li>
+                    <li><strong>Inference Security</strong>: Enclave-based inference (TEE), Model watermarking, Rate-limit, prompt filtering.</li>
+                </ul>
+            </details>
+
+            <details>
+                <summary><h3>11. “양자컴퓨터의 철학” — 구체적 구현 아이디어</h3></summary>
+                <ul>
+                    <li><strong>불확정성/다중성 영감</strong>: 시스템은 여러 후보(플랜)를 동시 생성 → 섀도우 검증 후 최종 선택(ensemble decision).</li>
+                    <li><strong>양자 난수(진정 랜덤)</strong>: QRNG 또는 하드웨어 RNG를 엔트로피 소스로 사용해 시드·키 품질 극대화.</li>
+                    <li><strong>포스트퀀텀 안전성</strong>: PQC(Kyber/Dilithium 등) 채택 및 hybrid 암호화로 미래 대비.</li>
+                    <li><strong>병렬적 탐색 철학</strong>: 다양한 모델/정책을 병렬 실험(ensemble)하고 메타-결정으로 안정적 선택.</li>
+                </ul>
+            </details>
+
+            <details>
+                <summary><h3>12. 실행 로드맵 (보안)</h3></summary>
+                <table class="tech-stack">
+                    <tr><th>Phase 0 (0–1개월)</th><td>설계·정책 (위협 모델, 암호 전략, PQC 계획)</td></tr>
+                    <tr><th>Phase 1 (1–3개월)</th><td>하드웨어·부팅 신뢰 (Secure Boot, TPM, Disk encryption)</td></tr>
+                    <tr><th>Phase 2 (3–6개월)</th><td>암호·인증·네트워크 (Hybrid TLS, HSM, FIDO2, mTLS)</td></tr>
+                    <tr><th>Phase 3 (4–8개월)</th><td>소프트웨어·업데이트 안전 (CI 서명, Signed updates)</td></tr>
+                    <tr><th>Phase 4 (6–12개월)</th><td>ML 보안 (Federated, DP, Model signing, Poisoning detection)</td></tr>
+                    <tr><th>Phase 5 (6–ongoing)</th><td>모니터링·IR·레드팀 (SIEM, Anomaly detection, Bug bounty)</td></tr>
+                </table>
+            </details>
+        </section>
+
+        <!-- Table of Contents -->
+        <details class="toc" id="toc-main">
+            <summary>전체 문서 목차</summary>
+            <ul class="toc-columns">
+                <li><a href="#philosophy"><strong>[A] 프로젝트 비전 및 철학</strong></a>
+                    <ul>
+                        <li><a href="#philosophy">1. 프로젝트 철학</a></li>
+                        <li><a href="#philosophy">2. 비전 및 목표</a></li>
+                        <li><a href="#philosophy">3. 핵심 가치</a></li>
+                        <li><a href="#philosophy">9. 성장 로드맵</a></li>
+                        <li><a href="#philosophy">10. 미래 비전</a></li>
+                    </ul>
+                </li>
+                <li><a href="#architecture"><strong>[B] 아키텍처 및 스택</strong></a>
+                    <ul>
+                        <li><a href="#architecture">4. 기능 아키텍처</a></li>
+                        <li><a href="#architecture">5. 기술 스택 제안</a></li>
+                    </ul>
+                </li>
+                <li><a href="#governance"><strong>[C] 거버넌스 및 UX</strong></a>
+                    <ul>
+                        <li><a href="#governance">6. 운영 철학 (동의)</a></li>
+                        <li><a href="#governance">7. UX 설계 원칙</a></li>
+                        <li><a href="#governance">8. 경쟁 포지션</a></li>
+                    </ul>
+                </li>
+                <li><a href="#security"><strong>[D] 보안 아키텍처</strong></a>
+                    <ul>
+                        <li><a href="#security">1. 핵심 원칙</a></li>
+                        <li><a href="#security">4. 암호(Crypto) 전략</a></li>
+                        <li><a href="#security">7. ML 파이프라인 보안</a></li>
+                        <li><a href="#security">11. 양자 철학</a></li>
+                        <li><a href="#security">12. 보안 로드맵</a></li>
+                    </ul>
+                </li>
+                <li><a href="#s0"><strong>[E] 30일 확장 계획 (Phase 1)</strong></a>
+                    <ul>
+                        <li><a href="#s0">0. 목표 요약 (30일)</a></li>
+                        <li><a href="#s1">1. 범위 확장 (MVP 대비)</a></li>
+                        <li><a href="#s2">2. 아키텍처 (Phase 1)</a></li>
+                        <li><a href="#s3">3. 주차별 로드맵</a></li>
+                        <li><a href="#s4">4. API 설계</a></li>
+                        <li><a href="#s5">5. 데이터 모델</a></li>
+                        <li><a href="#s6">6. Policy v1.1 스키마</a></li>
+                        <li><a href="#s7">7. Routine Builder 예시</a></li>
+                    </ul>
+                </li>
+                <li><a href="#s8"><strong>[F] 코드 스캐폴딩 (Phase 1)</strong></a>
+                    <ul>
+                        <li><a href="#s8">8. 코드 스캐폴딩</a></li>
+                        <li><a href="#s9">9. WebUI 스켈레톤</a></li>
+                        <li><a href="#s10">10. 설치 & 실행 스크립트</a></li>
+                        <li><a href="#s11">11. 테스트 전략</a></li>
+                        <li><a href="#s12">12. KPI & 대시보드</a></li>
+                        <li><a href="#s13">13. 리스크 & 대응</a></li>
+                        <li><a href="#s14">14. 즉시 할 일 (D0~D2)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#s15"><strong>[G] 프로젝트 통합 로그</strong></a>
+                    <ul>
+                        <li><a href="#s15">15. 첨부 파일 통합 (1차)</a></li>
+                        <li><a href="#s16">16. 신규 4개 파일 통합</a></li>
+                        <li><a href="#s24">24. WebUI 동의 모달 통합</a></li>
+                        <li><a href="#s25">25. Planner Consent Gate</a></li>
+                        <li><a href="#s26">26. Dashboard WebUI</a></li>
+                        <li><a href="#s27">27. Playwright & CI</a></li>
+                        <li><a href="#s30">30. 실시간 이벤트 & RAG</a></li>
+                        <li><a href="#s32">32. 멀티워커 SSE (Redis)</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </details>
+
+        <!-- Original 30-Day Plan Sections (Re-titled) -->
+        
+        <section id="s0">
+            <h2>[E] 30일 확장 계획 (Phase 1) - 목표 요약</h2>
+            <ul>
+                <li><strong>실사용 자동화 5종</strong>: 스마트 일정 추천, 메일 triage → 초안/예약발송, 브라우저 리서치/요약, 화면 OCR 퀵액션, 루틴 빌더.</li>
+                <li><strong>자가학습 고도화</strong>: Bandit-Lite → <strong>Contextual Bandit</strong>(상황/시간/앱-컨텍스트 반영), A/B 가중치 롤백.</li>
+                <li><strong>보안/동의</strong>: 고위험 동의 워크플로우, <strong>해시체인 감사로그</strong>, Policy-as-Code v1.1.</li>
+                <li><strong>성능/품질</strong>: P95 &lt; 2.5s, 자동 테스트 150+ 케이스, 오류율 &lt; 1%.</li>
+            </ul>
+        </section>
+
+        <section id="s1">
+            <h2>1. 범위 확장 (MVP 대비)</h2>
+            <div class="grid-container">
+                <div class="card"><h4>1) Routine Builder</h4><p>“매일 9시 뉴스 요약→ 캘린더에 투두 생성→ 중요 3건 메일 초안 저장”</p></div>
+                <div class="card"><h4>2) Smart Inbox</h4><p>INBOX 스캔→ 중요도 분류(LLM 요약)→ 3줄 요약/초안/예약발송/스누즈.</p></div>
+                <div class="card"><h4>3) Browser Agent</h4><p>키워드 리서치→ 3소스 교차 검증→ 근거 링크와 요약(출처 카드 제공).</p></div>
+                <div class="card"><h4>4) Screen OCR Quick Actions</h4><p>화면 캡처 텍스트→ 일정/연락처/주소 자동 인식→ 원클릭 생성.</p></div>
+                <div class="card"><h4>5) Calendar Auto-Scheduler</h4><p>사용자의 가용시간/이동시간 고려한 제안 일정 슬롯팅 + 충돌 경고.</p></div>
+                <div class="card"><h4>6) Notes + Pin</h4><p>중요 문서 상시 핀(Top-K), TTL 자동 정리, RAG와 양방향 링크.</p></div>
+                <div class="card"><h4>7) Contextual Bandit</h4><p>시간대/앱/최근성/성공률 기반로 툴 가중치 갱신, 안전한 롤백.</p></div>
+                <div class="card"><h4>8) 보안 하드닝</h4><p>정책 v1.1, 고위험 동의 2단계, 로그 해시체인, 로컬 암호화 강제.</p></div>
+            </div>
+        </section>
+
+        <section id="s2">
+            <h2>2. 아키텍처 (Phase 1)</h2>
+            <table class="tech-stack">
+                <thead>
+                    <tr><th>범주</th><th>기술</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>OS</td><td><code>Windows 11</code></td></tr>
+                    <tr><td>언어/런타임</td><td><code>Python 3.11</code></td></tr>
+                    <tr><td>API</td><td><code>FastAPI @ 127.0.0.1:8080</code></td></tr>
+                    <tr><td>DB</td><td><code>SQLite</code> (core), <code>FAISS</code> (RAG), <code>TinyKV(JSON)</code> 캐시</td></tr>
+                    <tr><td>UI</td><td><code>WebView2/브라우저</code> (Consent 모달 + 콘솔)</td></tr>
+                    <tr><td>OCR</td><td><code>Tesseract</code> (로컬 경로 지정)</td></tr>
+                    <tr><td>Automation</td><td><code>Playwright</code> (Chromium)</td></tr>
+                    <tr><td>Security</td><td><code>Policy-as-Code(JSON)</code> + <code>해시체인(logger)</code></td></tr>
+                    <tr><td>Learning</td><td><code>Contextual Bandit</code> (ε-greedy + softmax 선택)</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="s3">
+            <h2>3. 주차별 로드맵 (4주)</h2>
+            
+            <h3>Week 1 — 기반 고도화 & 정책/로그</h3>
+            <ul>
+                <li>Core 루프 안정화 (Planner/Verifier/Executor)</li>
+                <li>Policy v1.1: scope TTL, high-risk 작업 2단계 동의, domain allowlist</li>
+                <li>AuditLog 해시체인(파일단위 롤오버 + 무결성 검증)</li>
+                <li>VectorStore 파이프라인(문서/노트 → 청크/임베딩/TTL)</li>
+                <li>기본 UI: Consent 모달, 작업 콘솔, 근거 뷰어</li>
+            </ul>
+            <p><strong>마일스톤</strong>: 해시체인 로그, 정책 적용된 고위험 툴(system/mail) 완동</p>
+
+            <h3>Week 2 — 기능 ① (Routine/Inbox)</h3>
+            <ul>
+                <li>Routine Builder DSL (YAML) + 실행기</li>
+                <li>Smart Inbox: 라벨링/요약/초안/예약발송/스누즈</li>
+                <li>Calendar 자동 슬롯팅 v1 (휴식/이동시간 버퍼)</li>
+            </ul>
+            <p><strong>마일스톤</strong>: 3개 루틴 템플릿 배포, INBOX 100통 배치 처리 데모</p>
+
+            <h3>Week 3 — 기능 ② (Browser/OCR/Notes)</h3>
+            <ul>
+                <li>Browser Agent: 다중 소스 수집→ 요약→ 근거 카드</li>
+                <li>Screen OCR: 패턴 인식(일정/주소/전화) → 원클릭 액션</li>
+                <li>Notes + Pin: 중요도/최근성 기반 Top-K 고정</li>
+            </ul>
+            <p><strong>마일스톤</strong>: 브라우저 리서치 3소스 합성 카드, OCR→일정 생성 플로우</p>
+
+            <h3>Week 4 — 자가학습/품질/패키징</h3>
+            <ul>
+                <li>Contextual Bandit: 컨텍스트 피처(시간/앱/최근성) + 안전 롤백</li>
+                <li>대시보드: 성능/KPI/러닝 가중치/오류 이벤트</li>
+                <li>설치 스크립트(venv+deps+playwright+tesseract 경로), 배포 README</li>
+            </ul>
+            <p><strong>마일스톤</strong>: KPI 달성(P95&lt;2.5s, 완수율&gt;88%), 150+ 테스트 통과</p>
+        </section>
+
+        <section id="s4">
+            <h2>4. API 설계 (Phase 1)</h2>
+            <pre><code>
+POST /aurora/plan → 의도/계획
+POST /aurora/execute → 계획 실행 (consent 토큰 필요시 획득)
+POST /aurora/consent/request
+POST /aurora/consent/approve
+POST /tools/{name}/{op} (calendar/mail/browser/files/notes/screen/system/nlp)
+GET /memory/search (RAG)
+POST /memory/ingest
+GET /metrics/kpi
+GET /metrics/bandit
+POST /routine/validate
+POST /routine/run
+</code></pre>
+        </section>
+
+        <section id="s5">
+            <h2>5. 데이터 모델 (SQLite)</h2>
+            <details>
+                <summary>SQLite 테이블 스키마 보기</summary>
+                <pre><code>
+tables
+- sessions(id, started_at, last_event_at, summary)
+- tasks(id, session_id, intent, plan_json, status, risk, created_at, finished_at)
+- consents(id, task_id, scope, purpose, expires_at, approved, approved_at)
+- audit(id, ts, actor, action, payload, prev_hash, hash)
+- bandit_weights(id, context_key, tool, weight, updated_at)
+- notes(id, title, body, pin, ttl_at, created_at)
+- embeddings(id, doc_id, chunk_idx, vec BLOB, ttl_at)
+
+인덱스: tasks(status, created_at), consents(task_id), bandit_weights(context_key, tool)
+</code></pre>
+            </details>
+        </section>
+
+        <section id="s6">
+            <h2>6. Policy v1.1 스키마 (Phase 1)</h2>
+            <details>
+                <summary>Policy JSON 스키마 보기</summary>
+                <pre><code>
+{
+  "policy_version": "1.1",
+  "scopes": {
+    "mail.send": {"allow": true, "approval": "explicit", "ttl_hours": 12},
+    "system.exec.limited": {"allow": true, "signed_only": true, "ttl_hours": 1},
+    "files.delete": {"allow": false}
+  },
+  "high_risk": ["payment.*", "files.delete", "system.exec.*", "mail.send"],
+  "domain_allowlist": ["example.com", "microsoft.com"],
+  "consent": {"require_each_time": true, "show_purpose": true, "show_alternative": true}
+}
+</code></pre>
+            </details>
+        </section>
+
+        <section id="s7">
+            <h2>7. Routine Builder (DSL 예시)</h2>
+            <details>
+                <summary>Routine YAML 예시 보기</summary>
+                <pre><code>
+name: "morning-brief"
+schedule: "0 9 * * 1-5"  # 평일 9시
+steps:
+  - tool: browser.search
+    with: {query: "AI startup funding news site:techcrunch.com OR site:theverge.com", k: 3}
+  - tool: nlp.summarize
+    with: {style: "bullet-3"}
+  - tool: notes.save
+    with: {title: "Morning Brief", pin: true}
+  - tool: calendar.create
+    with: {title: "Daily Brief Review", when: "today 09:30", duration: 15}
+  - tool: mail.compose
+    with: {to: ["me@local"], subject: "Morning Brief", draft: true}
+</code></pre>
+            </details>
+        </section>
+
+        <section id="s8">
+            <h2>[F] 코드 스캐폴딩 (Phase 1)</h2>
+            <details>
+                <summary>프로젝트 파일트리 보기</summary>
+                <pre><code>
+aurora-win/
+ ├─ app/
+ │   ├─ main.py
+ │   ├─ core/
+ │   │   ├─ planner.py
+ │   │   ├─ verifier.py
+ │   │   ├─ executor.py
+ │   │   ├─ consent.py
+ │   │   └─ context.py
+ │   ├─ tools/
+ │   │   ├─ calendar.py
+ │   │   ├─ mail.py
+ │   │   ├─ browser.py
+ │   │   ├─ files.py
+ │   │   ├─ notes.py
+ │   │   ├─ screen.py
+ │   │   ├─ system.py
+ │   │   └─ nlp.py
+ │   ├─ memory/
+ │   │   ├─ store.py
+ │   │   ├─ vectorstore.py
+ │   │   └─ bandit.py
+ │   ├─ security/
+ │   │   ├─ policy.py
+ │   │   └─ hashlog.py
+ │   └─ utils/
+ │       ├─ timeparse.py
+ │       └─ config.py
+ ├─ webui/
+ │   ├─ index.html
+ │   ├─ consent_modal.html
+ │   └─ app.js
+ ├─ data/
+ │   ├─ policy.json
+ │   ├─ audit.log
+ │   └─ embeddings/
+ ├─ scripts/
+ │   └─ signed_ps/
+ ├─ tests/
+ │   ├─ test_policy.py
+ │   ├─ test_hashlog.py
+ │   ├─ test_bandit.py
+ │   └─ test_tools_basic.py
+ ├─ .env
+ ├─ requirements.txt
+ └─ README.md
+</code></pre>
+            </details>
+
+            <details>
+                <summary><h4>8.1 app/main.py</h4></summary>
+                <pre><code>
+from fastapi import FastAPI, HTTPException
+from app.core import planner, verifier, executor, consent
+from app.security.policy import Policy
+from app.security.hashlog import AuditLogger
+from app.memory.store import DB
+from app.memory.bandit import Bandit
+
+app = FastAPI(title="AURORA", version="0.2")
+policy = Policy.from_file("data/policy.json")
+audit = AuditLogger("data/audit.log")
+db = DB("data/aurora.db")
+bandit = Bandit(db)
+
+@app.post("/aurora/plan")
+async def plan(req: dict):
+    intent = req.get("input", "")
+    ctx = req.get("context", {})
+    plan_obj = planner.make_plan(intent, ctx)
+    return {"plan": plan_obj}
+
+@app.post("/aurora/execute")
+async def execute(req: dict):
+    plan_obj = req.get("plan")
+    if not plan_obj:
+        raise HTTPException(400, "plan missing")
+    risk = verifier.assess_risk(plan_obj, policy)
+    if verifier.need_consent(risk, plan_obj, policy):
+        token = consent.issue(plan_obj, policy)
+        return {"status": "consent_required", "token": token}
+    result = await executor.run(plan_obj, policy, audit, db, bandit)
+    return {"status": "ok", "result": result}
+
+@app.post("/aurora/consent/approve")
+async def approve(req: dict):
+    token = req.get("token")
+    consent.save(token, approved=True, db=db)
+    plan_obj = consent.resolve_plan(token)
+    result = await executor.run(plan_obj, policy, audit, db, bandit)
+    return {"status": "ok", "result": result}
+</code></pre>
+            </details>
+
+            <details>
+                <summary><h4>8.6 app/security/hashlog.py (해시체인)</h4></summary>
+                <pre><code>
+import hashlib, json, time, os
+
+class AuditLogger:
+    def __init__(self, path: str):
+        self.path = path
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if not os.path.exists(path):
+            with open(path, 'w', encoding='utf-8') as f: f.write("")
+
+    def _last_hash(self):
+        h = "0"*64
+        with open(self.path, 'r', encoding='utf-8') as f:
+            for line in f: h = json.loads(line).get('hash', h)
+        return h
+
+    def record(self, actor: str, action: str, payload: dict):
+        prev = self._last_hash()
+        entry = {"ts": time.time(), "actor": actor, "action": action, "payload": payload, "prev": prev}
+        raw = json.dumps(entry, sort_keys=True).encode()
+        digest = hashlib.sha256(raw).hexdigest()
+        entry["hash"] = digest
+        with open(self.path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        return digest
+</code></pre>
+            </details>
+
+            <details>
+                <summary><h4>8.7 app/security/policy.py</h4></summary>
+                <pre><code>
+import json
+class Policy:
+    def __init__(self, data):
+        self.data = data
+        self.require_each_time = data.get("consent", {}).get("require_each_time", True)
+    @classmethod
+    def from_file(cls, path):
+        return cls(json.load(open(path, 'r', encoding='utf-8')))
+    def allowed(self, scope: str) -> bool:
+        s = self.data.get("scopes", {}).get(scope)
+        return bool(s and s.get("allow"))
+</code></pre>
+            </details>
+        </section>
+
+        <section id="s9">
+            <h2>9. WebUI 스켈레톤 (Phase 1)</h2>
+            <details>
+                <summary><h4>webui/index.html</h4></summary>
+                <pre><code>
+&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;title&gt;AURORA&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;AURORA Console&lt;/h1&gt;
+  &lt;input id="q" placeholder="무엇을 도와드릴까요?" /&gt;
+  &lt;button onclick="run()"&gt;실행&lt;/button&gt;
+  &lt;pre id="out"&gt;&lt;/pre&gt;
+  &lt;script src="app.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+            </details>
+            <p><strong>webui/consent_modal.html</strong> — 목적/범위/대안/TTL 표시, 승인/거부 버튼</p>
+            <p><strong>webui/app.js</strong> — <code>/plan</code>→<code>/execute</code>→ 동의 필요시 모달 열기</p>
+        </section>
+
+        <section id="s10">
+            <h2>10. 설치 & 실행 스크립트 (Windows)</h2>
+            <details>
+                <summary>설치/실행 (Batch) 스크립트</summary>
+                <pre><code>
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python -m playwright install chromium
+set TESSERACT_PATH=C:\\Program Files\\Tesseract-OCR\\tesseract.exe
+uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
+</code></pre>
+            </details>
+            
+            <details>
+                <summary>requirements.txt (초판)</summary>
+                <pre><code>
+fastapi
+uvicorn
+faiss-cpu
+playwright
+pytesseract
+numpy
+pandas
+jinja2
+python-dotenv
+rich
+</code></pre>
+            </details>
+        </section>
+
+        <section id="s11">
+            <h2>11. 테스트 전략 (Phase 1)</h2>
+            <ul>
+                <li><strong>유닛</strong>: policy 허용/거부, 해시체인 무결성, bandit 업데이트, timeparse</li>
+                <li><strong>통합</strong>: <code>/execute</code> 시나리오(동의 필요/미필요), 5개 루틴 템플릿</li>
+                <li><strong>E2E(선택)</strong>: Playwright headless로 Browser Agent 플로우 검증</li>
+            </ul>
+            <p>커버리지 목표: <strong>80%+</strong>, 케이스 150+.</p>
+        </section>
+
+        <section id="s12">
+            <h2>12. KPI & 대시보드 (Phase 1)</h2>
+            <ul>
+                <li>Task Success Rate, P95 Latency, Consent Skip Rate(=0), Bandit Reward Trend</li>
+                <li>이벤트 스키마: <code>task_started/finished</code>, <code>consent_requested/approved</code>, <code>tool_invoked</code>, <code>error</code></li>
+            </ul>
+        </section>
+
+        <section id="s13">
+            <h2>13. 리스크 & 대응 (Phase 1)</h2>
+            <ul>
+                <li><strong>브라우저 자동화 내구성</strong>: 선택자 깨짐 → 안정화 레이어/리트라이/샌드박스</li>
+                <li><strong>OCR 정확도</strong>: 언어팩/전처리/룰 기반 패턴 매칭 보강</li>
+                <li><strong>개인정보 보호</strong>: 고위험 스코프 2단 동의 + 로컬 암호화 + 로그 마스킹</li>
+                <li><strong>러닝 품질</strong>: bandit 가중치 롤백/스냅샷 + 오탐 경계값 튜닝</li>
+            </ul>
+        </section>
+
+        <section id="s14">
+            <h2>14. 즉시 할 일 (D0~D2)</h2>
+            <ol>
+                <li>저장소 초기화 + 위 스캐폴딩 커밋</li>
+                <li><code>policy.json</code> 기본값 배포/적용 + 해시체인 로거 연결</li>
+                <li>Routine DSL 파서 초안 + 2개 루틴 템플릿 운영</li>
+                <li>Calendar/Mail/Notes 최소기능 연결(로컬 큐/ics)</li>
+            </ol>
+        </section>
+
+        <section id="s15">
+            <h2>[G] 프로젝트 통합 로그 (History)</h2>
+            
+            <details>
+                <summary><h3>15. 첨부 파일 프로젝트 통합 결과 (1차)</h3></summary>
+                <ul>
+                    <li><code>/docs/aurora_installation_guide.md</code> → <strong>설치 가이드</strong></li>
+                    <li><code>/docs/aurora_ui_consent_design.md</code> → <strong>UI/Consent 설계</strong></li>
+                    <li><code>/docs/aurora_self_learning_module.md</code> → <strong>자가학습(Bandit) 설계</strong></li>
+                    <li><code>/docs/aurora_local_llm_architecture.md</code> → <strong>로컬 LLM/라우팅 설계</strong></li>
+                    <li><code>/docs/aurora_dashboard_logging_design.md</code> → <strong>대시보드/로깅 설계</strong></li>
+                    <li><code>/docs/aurora_test_scenarios.md</code> → <strong>표준 테스트 시나리오</strong></li>
+                    <li><code>/bootstrap/aurora_code_scaffolding.py</code> → <strong>스캐폴딩 참고 코드</strong></li>
+                </ul>
+                <details>
+                    <summary><h4>15.2 폴더 구조(업데이트)</h4></summary>
+                    <pre><code>
+aurora-win/
+ ├─ app/
+ │   ├─ main.py
+ │   ├─ core/ (...)
+ │   ├─ tools/ (...)
+ │   ├─ memory/ (store.py, vectorstore.py, bandit.py)
+ │   ├─ security/ (policy.py, hashlog.py)
+ │   ├─ models/ (llm/, embedding/, tts/, asr/)
+ │   └─ router/ (model_router.json, model_fetch.py)
+ ├─ webui/
+ │   ├─ ...
+ │   └─ dashboard/
+ │       └─ dashboards.json
+ ├─ data/ (policy.json, audit.log, metrics.db, embeddings/)
+ ├─ tests/ (unit/, integration/, e2e/)
+ ├─ docs/ (설치/Consent/Bandit/LLM/대시보드/테스트 시나리오)
+ └─ scripts/ (signed_ps/, audit_verify.py)
+</code></pre>
+                </details>
+                <details>
+                    <summary><h4>15.5 변경된 API(요약)</h4></summary>
+                    <pre><code>
+POST /aurora/execute : consent_required 응답 시 토큰 포함
+POST /aurora/consent/approve : 토큰 승인 후 즉시 실행
+GET  /dash/kpi
+GET  /dash/bandit/weights
+GET  /dash/consent/timeline
+GET  /dash/latency
+GET  /dash/errors/top
+GET  /dash/highrisk
+GET  /dash/bandit/reward
+GET  /dash/rag/quality
+GET  /dash/rag/top-chunks
+</code></pre>
+                </details>
+            </details>
+            
+            <details>
+                <summary><h3>16. 신규 4개 파일 통합</h3></summary>
+                <p>dashboards.json / audit_verify.py / model_router.json / model_fetch.py</p>
+                <ul>
+                    <li><code>webui/dashboard/dashboards.json</code> ← <strong>대시보드 패널 정의</strong></li>
+                    <li><code>scripts/audit_verify.py</code> ← <strong>감사로그 무결성 검증 CLI</strong></li>
+                    <li><code>app/router/model_router.json</code> ← <strong>하이브리드 라우팅 정책</strong></li>
+                    <li><code>app/router/model_fetch.py</code> ← <strong>모델 다운로드/무결성 검증</strong></li>
+                </ul>
+                <details>
+                    <summary><h4>16.3 사용 예시 (모델 설치/감사)</h4></summary>
+                    <pre><code>
+# 1) 모델 설치(해시·서명 검증 + manifest 반영)
+python app/router/model_fetch.py \
+  --name phi3-mini-gguf \
+  --url https://models.example.com/phi3-mini-4bit.gguf \
+  --sha256 &lt;HEX_SHA256&gt; \
+  --sig &lt;BASE64_SIG&gt; \
+  --pubkey models/pubkey.ed25519 \
+  --out models/llm/phi3-mini-4bit.gguf
+
+# 2) 감사로그 체인 무결성 검증
+python scripts/audit_verify.py data/audit.log
+</code></pre>
+                </details>
+            </details>
+            
+            <details>
+                <summary><h3>24. WebUI 동의 모달 & Hook 통합 (React/shadcn)</h3></summary>
+                <ul>
+                    <li><code>webui/components/ConsentModal.tsx</code></li>
+                    <li><code>webui/hooks/useConsent.ts</code></li>
+                </ul>
+                <details>
+                    <summary><h4>24.2 사용 예 (상위 레이아웃)</h4></summary>
+                    <pre><code>
+// App.tsx
+import ConsentModal from "@/webui/components/ConsentModal";
+import { useConsent } from "@/webui/hooks/useConsent";
+
+export default function AppShell(){
+  const consent = useConsent();
+  return (
+    &lt;&gt;
+      &lt;MainApp onHighRisk={(payload)=&gt;consent.ask(payload)} /&gt;
+      &lt;ConsentModal open={consent.open} onOpenChange={consent.setOpen} request={consent.request} /&gt;
+    &lt;/&gt;
+  );
+}
+</code></pre>
+                </details>
+            </details>
+            
+            <details>
+                <summary><h3>25. Planner Consent Gate (백엔드 훅)</h3></summary>
+                <p><code>app/core/planner_consent_gate.py</code> 추가. 고위험 액션 감지 시 동의 페이로드 반환.</p>
+                <details>
+                    <summary><h4>25.1 통합 스니펫</h4></summary>
+                    <pre><code>
+# app/main.py (발췌)
+from planner_consent_gate import evaluate_consent, Plan
+
+@app.post("/cognition/plan-exec")
+async def plan_exec(req: dict):
+    plan = Plan(...)
+    gate = evaluate_consent(req.get("session_id","sess-0"), plan)
+    if "requires_consent" in gate:
+        return gate  # 프런트는 useConsent.ask()로 모달 트리거
+    return await executor.run(...)
+</code></pre>
+                </details>
+            </details>
+
+            <details>
+                <summary><h3>26. Dashboard WebUI & 스모크</h3></summary>
+                <ul>
+                    <li><code>webui/pages/Dashboard.tsx</code> ← (Recharts 4탭: Overview/Performance/Consent/Bandit)</li>
+                    <li><code>scripts/smoke.mjs</code> ← (ESM 스모크 테스트 스크립트)</li>
+                </ul>
+            </details>
+            
+            <details>
+                <summary><h3>27. Playwright & CI 파이프라인</h3></summary>
+                <ul>
+                    <li><code>playwright.config.ts</code></li>
+                    <li><code>tests/e2e/tests_consent.spec.ts</code> (/consent 플로우 & /dash/kpi/latency 스모크)</li>
+                    <li><code>.github/workflows/ci.yml</code> (CI 파이프라인)</li>
+                </ul>
+            </details>
+            
+            <details>
+                <summary><h3>28. 즉시 실행 퀵가이드 (프런트/백엔드/테스트)</h3></summary>
+                <pre><code>
+# 1) 백엔드 기동 (포트 8000 예시)
+uvicorn app.main:app --reload --port 8000
+
+# 2) WebUI 개발 서버 (Next/Vite 기준)
+npm i && npm run dev
+
+# 3) 스모크 체크
+node scripts/smoke.mjs http://localhost:8000
+
+# 4) Playwright E2E
+npx playwright install
+BASE_URL=http://localhost:8000 npx playwright test
+</code></pre>
+            </details>
+
+            <details>
+                <summary><h3>30. 실시간 이벤트 & RAG 패널 확장 통합</h3></summary>
+                <ul>
+                    <li><strong>백엔드 (SSE)</strong>: <code>event_sse_router.py</code> (Polling) / <code>event_sse_push_router.py</code> + <code>event_bus.py</code> (Push)</li>
+                    <li><strong>프런트 (토스트)</strong>: <code>webui_EventStream.tsx</code> / <code>webui_toaster_shadcn.tsx</code> (shadcn/sonner)</li>
+                    <li><strong>RAG</strong>: <code>webui_RagPanel.tsx</code> (패널), <code>rag_preview_router.py</code> (프리뷰 라우터)</li>
+                </ul>
+            </details>
+            
+            <details>
+                <summary><h3>32. 멀티워커 SSE (Redis) & RAG 프리뷰/토스트 집계 통합</h3></summary>
+                <ul>
+                    <li><strong>백엔드 (Redis)</strong>: <code>app/redis_event_bus.py</code>, <code>app/event_sse_redis_router.py</code>, <code>app/event_collector_redis_patch.py</code></li>
+                    <li><strong>WebUI (토스트 집계)</strong>: <code>webui/webui_toaster_shadcn_agg.tsx</code> (2초 윈도우 집계)</li>
+                    <li><strong>WebUI (RAG 프리뷰)</strong>: <code>webui/webui_RagPreview.tsx</code> (하이라이트/탐색 UI)</li>
+                </ul>
+                <details>
+                    <summary><h4>32.1 app/main.py (권장 통합 스니펫)</h4></summary>
+                    <pre><code>
+import os
+from fastapi import FastAPI
+from aurora_dashboard_api_stub import dash_router
+from audit_middleware import AuditMiddleware
+from event_sse_redis_router import sse_router
+from rag_preview_router import preview_router
+from event_collector_redis_patch import EventCollectorRedis
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+app = FastAPI()
+app.include_router(dash_router, prefix="/dash")
+app.include_router(sse_router,  prefix="/events")
+app.include_router(preview_router)
+app.add_middleware(AuditMiddleware, log_path="data/audit.log")
+
+collector = EventCollectorRedis("data/metrics.db", redis_url=REDIS_URL)
+app.state.collector = collector
+
+@app.on_event("startup")
+async def _boot():
+    await collector.start()
+
+@app.on_event("shutdown")
+async def _stop():
+    await collector.stop()
+</code></pre>
+                </details>
+                <details>
+                    <summary><h4>32.4 로컬 검증 플로우</h4></summary>
+                    <pre><code>
+# 1) Redis 기동
+docker run -p 6379:6379 redis:7-alpine
+
+# 2) FastAPI 멀티워커 예시
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# 3) WebUI 실행 (Next/Vite)
+# 대시보드 진입 후 이벤트 발생 → 집계 토스트 확인
+
+# 4) RAG 문서 업로드
+mkdir -p data/rag && cp your.txt data/rag/my_doc_001.txt
+# RAG 프리뷰 → 검색어 입력 → Prev/Next 탐색
+</code></pre>
+                </details>
+            </details>
+
+        </section>
+
+    </main>
+
+    <footer>
+        <p>본 문서는 AURORA 프로젝트의 철학, 비전, 보안 아키텍처 및 세부 실행 계획을 통합한 마스터 플랜입니다.</p>
+    </footer>
+
+</body>
+</html>
