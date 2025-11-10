@@ -1,0 +1,17 @@
+{
+  "router_version": "1.0",
+  "defaults": {"target": "local", "slo_ms": 1500, "temperature": 0.4},
+  "models": {
+    "local_intent": {"uri": "local://phi3-mini-gguf", "max_context": 4096},
+    "local_summarize": {"uri": "local://llama3.2-3b-gguf", "max_context": 4096},
+    "local_embed": {"uri": "local://e5-small-onnx", "max_context": 1024},
+    "cloud_general": {"uri": "cloud://gpt-latest", "max_context": 131072}
+  },
+  "rules": [
+    {"if": {"risk": "high"}, "then": {"target": "local"}},
+    {"if": {"task": "intent"}, "then": {"target": "local", "model": "local_intent"}},
+    {"if": {"task": "summarize", "tokens_in": {"lte": 1500}}, "then": {"target": "local", "model": "local_summarize"}},
+    {"if": {"task": "embedding"}, "then": {"target": "local", "model": "local_embed", "temperature": 0.0}},
+    {"if": {"task": "generate_long"}, "then": {"target": "cloud", "model": "cloud_general", "slo_ms": 6000}}
+  ]
+}

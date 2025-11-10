@@ -1,51 +1,52 @@
+"""
+Planner Consent Gate
+- Hook for cognition pipeline: before executing a high-risk plan, emit a consent request payload
+- Returns either {"proceed": True} or {"requires_consent": payload}
+
+Usage:
+    from planner_consent_gate.py import evaluate_consent
+    decision = evaluate_consent(session_id, plan)
+    if decision.get("requires_consent"):
+        # return to UI; UI will call /consent/request then /consent/decision
+    else:
+        # proceed with executor
+"""
+from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any
 
-
-RATIONALE_MAX = 240 # ~2 lines in UI
-
+HIGH_RISK_ACTIONS = {"mail.send", "system.exec.limited", "files.delete", "payment.charge"}
 
 @dataclass
 class Plan:
-intent: str
-tool: str
-args: Dict[str, Any]
-risk: str = "low"
-
-
-HIGH_RISK = {"mail.send", "system.exec.limited", "files.delete", "payment.charge", "os.settings", "update.apply"}
-
-
-
-
-def _summarize(text: str) -> str:
-t = (text or "").strip().replace("\n", " ")
-return (t[:RATIONALE_MAX] + "…") if len(t) > RATIONALE_MAX else t
-
-
+    intent: str
+    tool: str
+    args: Dict[str, Any]
+    risk: str  # low|medium|high
 
 
 def evaluate_consent(session_id: str, plan: Plan) -> Dict[str, Any]:
-# basic gate: high-risk tool or explicit risk field
-tool_key = plan.tool.strip()
-is_high = plan.risk == "high" or tool_key in HIGH_RISK
-if not is_high:
-return {}
+    risk = plan.risk.lower()
+    # heuristics: explicit high risk OR in known high-risk actions
+    is_high = risk == "high" or plan.tool in HIGH_RISK_ACTIONS
+    if not is_high:
+        return {"proceed": True}
 
+    purpose = plan.args.get("purpose") or f"Execute {plan.tool} for {plan.intent}"
+    scope = plan.args.get("scope") or plan.tool.split(".")[0]
+    ttl = int(plan.args.get("ttl_hours", 24))
 
-rationale = {
-"why": _summarize(plan.intent or plan.args.get("purpose", "")),
-"how": _summarize(f"tool={plan.tool} args={list(plan.args.keys())}")
-}
+    payload = {
+        "session_id": session_id,
+        "action": plan.tool,
+        "purpose": purpose,
+        "scope": scope,
+        "risk": "high",
+        "ttl_hours": ttl,
+    }
+    return {"requires_consent": payload}
 
-
-return {
-"requires_consent": {
-"session_id": session_id,
-"purpose": plan.args.get("purpose"),
-"scope": plan.args.get("scope"),
-"risk": plan.risk if plan.risk else "high",
-"ttl_hours": plan.args.get("ttl_hours", 24),
-"rationale": rationale
-}
-}
+# Example
+if __name__ == "__main__":
+    p = Plan(intent="send_summary", tool="mail.send", args={"to":"a@b.com"}, risk="high")
+    print(evaluate_consent("sess-123", p))
