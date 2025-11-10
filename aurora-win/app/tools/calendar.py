@@ -1,23 +1,18 @@
 # app/tools/calendar.py
 import time
-from app.memory.store import DB # store.py의 DB 클래스 사용
+from app/memory.store import DB # store.py의 DB 클래스 사용
+from . import notes # app/tools/notes.py 임포트
 
 async def create(args, policy, db: DB):
     """
-    일정을 'notes' 테이블에 간단한 텍스트로 저장합니다.
-    (schema.sql [cite: vivleon/aurora/AURORA-main/aurora-win/schema.sql]에 'notes' 테이블이 없으므로,
-     'events_raw'에 'task' 타입으로 기록하거나, 'notes' 테이블을 추가해야 합니다.)
-     
-    [수정]: 'notes' 테이블이 아닌 'metrics.db'의 'events_raw'에 'task'로 기록
-    [대안]: app/tools/notes.py의 'save'를 호출
+    일정 생성을 요청받아, app/tools/notes.py의 save 함수를 호출하여
+    'notes' 테이블에 일정 정보를 저장합니다.
+    (schema.sql에 'notes' 테이블이 정의되어 있습니다.)
     """
     title = args.get("title", "Untitled Event")
     when_str = args.get("when", "now") # TODO: timeparse.py 필요
     
-    print(f"[Tool.Calendar] Creating event: {title} at {when_str}")
-    
-    # 'notes' 테이블이 없으므로, app/tools/notes.py의 save 함수를 사용
-    from . import notes
+    print(f"[Tool.Calendar] Creating event via notes.save: {title} at {when_str}")
     
     try:
         # notes.py의 save 함수를 직접 호출
