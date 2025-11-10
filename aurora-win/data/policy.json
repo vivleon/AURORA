@@ -1,0 +1,7 @@
+{
+"policy_version": "1.1",
+"risk_rules": {
+"high_risk": ["payment.*", "os.settings", "update.apply", "mail.send", "system.exec.limited", "files.delete"],
+"require_consent_each_time": true
+}
+}

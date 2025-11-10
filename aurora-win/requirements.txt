@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+faiss-cpu
+playwright
+pytesseract
+numpy
+pandas
+jinja2
+python-dotenv
+rich
