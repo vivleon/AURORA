@@ -1,5 +1,5 @@
 -- Aurora KPI Views (rollup-optimized)
--- Usage: sqlite3 data/metrics.db < kpi_views.sql
+-- Usage: sqlite3 data/metrics.db < data/kpi_views.sql
 -- Note: P95 aggregation across buckets uses a safe upper-bound approximation (MAX of per-bucket p95)
 
 PRAGMA foreign_keys=ON;
