@@ -1,36 +1,23 @@
-Core
-
+# requirements.txt (수정본)
 fastapi
 uvicorn[standard]
 pydantic
-
-Tools
 
 playwright
 pytesseract
 numpy
 pandas
-Pillow # (app/tools/screen.py의 ImageGrab에 필요)
-aiofiles # (app/tools/files.py의 비동기 I/O에 권장)
-httpx # (app/router/model_runner.py의 LLM 호출에 필요)
-
-Storage & Events
+Pillow
+aiofiles
+httpx
 
 faiss-cpu
 sqlite-utils
 redis>=4.0
 
-Security
-
-pynacl # (app/router/model_fetch.py의 서명 검증에 필요)
-
-Utils
+pynacl
 
 python-dotenv
 rich
-
 jinja2
-
-ics # [신규] iCalendar (ICS) 파일 파싱용
-
-httpx # (app/router/model_runner.py 및 tests/integration/에서 API 호출에 필요)
+ics
