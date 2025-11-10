@@ -20,6 +20,8 @@ from app.memory.store import DB # DB 스텁 (필요시)
 
 # --- [신규] Routine Builder 임포트 ---
 from app.core.routine import load_routine_data
+from app.core import smart_inbox # [신규]
+
 
 # --- 환경 설정 ---
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -131,7 +133,30 @@ async def execute_endpoint(req: dict, fast_req: Request):
     )
     return {"status": "ok", "result": result}
 
+# --- [신규] Smart Inbox API (자동화 워크플로우) ---
+@app.post("/aurora/run-smart-inbox")
+async def run_smart_inbox_endpoint(
+    req: Request,
+    limit: int = 3
+):
+    """
+    Smart Inbox 자동화 워크플로우를 실행합니다.
+    (Routine이 아닌 복잡한 워크플로우 예시)
+    """
+    # app state에서 의존성 가져오기
+    policy = req.app.state.policy
+    db = DB(METRICS_DB_PATH) # (store.py가 상태를 갖지 않으므로 새로 생성)
+    
+    # app/core/smart_inbox.py의 함수 호출
+    results = await smart_inbox.process_inbox(
+        policy=policy,
+        db=db,
+        limit=limit
+    )
+    
+    return {"status": "ok", "processed": results}
 
+    
 # --- [신규] Routine Builder API (Week 2 목표) ---
 @app.post("/routine/run")
 async def run_routine_endpoint(
