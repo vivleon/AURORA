@@ -1,10 +1,8 @@
 import time
-import asyncio # [신규] 비동기 스레드 실행을 위해 임포트
+import asyncio 
 from typing import Dict, Any
-from app.tools import calendar, mail, browser, files, notes, screen, system, nlp
-
-# executor.py는 'aurora-win/aurora-win/app/core/executor.py'의 것을 사용
-#
+# [신규] rag 도구 임포트
+from app.tools import calendar, mail, browser, files, notes, screen, system, nlp, rag
 
 TOOL_MAP = {
     "calendar": calendar,
@@ -15,12 +13,13 @@ TOOL_MAP = {
     "screen": screen,
     "system": system,
     "nlp": nlp,
+    "rag": rag, # [신규] RAG 도구 등록
 }
 
 async def run(
     plan: Dict[str, Any], 
     policy, 
-    collector,  # 'audit' 대신 'collector' (EventCollector)를 받음
+    collector,
     db, 
     bandit,
     session_id: str = "default-session"
@@ -33,15 +32,13 @@ async def run(
     """
     results = []
     
-    # [신규] 이 계획의 컨텍스트 키 (예: "intent:schedule_find")
-    # Bandit은 이 컨텍스트를 기반으로 학습합니다.
     context_key = plan.get("intent", "global")
     
     for step in plan.get("steps", []):
         tool = step["tool"]
         op = step["op"]
         args = step.get("args", {})
-        tool_op_key = f"{tool}.{op}" # 예: "calendar.list_slots"
+        tool_op_key = f"{tool}.{op}" # 예: "rag.search"
         
         mod = TOOL_MAP.get(tool)
         if not mod:
@@ -69,42 +66,41 @@ async def run(
         
         latency_ms = int((time.monotonic() - start_time) * 1000)
 
-        # 1. [기존] EventCollector (대시보드/SSE용)로 이벤트 전송
+        # 1. EventCollector (대시보드/SSE용)로 이벤트 전송
         if collector:
+            # [신규] RAG 도구 실행 시 'type'을 'rag'로 설정
+            event_type = "rag" if tool == "rag" else "tool"
+            
             event = {
-                "type": "tool",
+                "type": event_type,
                 "session_id": session_id,
-                "intent": context_key, # 컨텍스트 키 사용
+                "intent": context_key,
                 "tool": tool_op_key,
                 "outcome": outcome,
                 "latency_ms": latency_ms,
                 "err_code": err_code,
-                "risk": "low", # TODO: verifier에서 실제 risk 가져오기
+                "risk": "low",
+                # [신규] RAG 결과(evidence) 수량 로깅 (대시보드 품질 측정용)
+                "evidences": len(out.get("results", [])) if tool == "rag" and out else 0
             }
             try:
                 await collector.enqueue(event)
             except Exception:
                 print(f"[WARN] Failed to enqueue metric event for {tool_op_key}")
 
-        # 2. [신규] 자가학습: 보상 신호 계산 및 Bandit 업데이트
-        # (docs/aurora_self_learning_module.md 기반 보상 함수)
+        # 2. 자가학습: 보상 신호 계산 및 Bandit 업데이트
         if outcome == "success":
-            # 성공 시 1.0에서 시작, 1초당 0.1씩 감소
             reward = 1.0 - (latency_ms / 10000.0)
         else:
-            # 오류 시 -0.5
             reward = -0.5
-        
-        # bandit.update는 보상 범위를 [-1.0 ~ 1.5]로 가정함
         
         if bandit:
             try:
-                # bandit.update는 동기 (파일 I/O)이므로 스레드에서 실행
                 await asyncio.to_thread(
                     bandit.update, 
-                    context_key, # 컨텍스트 (예: "일정 추천")
-                    tool_op_key,   # 도구 (예: "calendar.list_slots")
-                    reward         # 보상 (예: 0.85)
+                    context_key,
+                    tool_op_key,
+                    reward
                 )
                 print(f"[Bandit] Updated '{context_key}' -> '{tool_op_key}' with reward: {reward:.2f}")
             except Exception as e:
