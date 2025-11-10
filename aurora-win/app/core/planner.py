@@ -1,10 +1,34 @@
 from typing import Dict, Any
 
-
 def make_plan(user_input: str, context: Dict[str, Any]) -> Dict[str, Any]:
-# 간단한 규칙 베이스 + 키워드 라우팅 (후속으로 LLM 의도분석 연결)
-if "일정" in user_input:
-return {"steps": [{"tool": "calendar", "op": "create", "args": {"title": user_input}}]}
-if "메일" in user_input:
-return {"steps": [{"tool": "mail", "op": "compose", "args": {"subject": user_input}}]}
-return {"steps": [{"tool": "nlp", "op": "summarize", "args": {"text": user_input}}]}
+    """
+    사용자 입력을 받아 실행 계획(steps)을 생성합니다.
+    'op' (operation) 필드를 명시적으로 지정해야
+    verifier.py와 executor.py가 올바르게 동작합니다.
+    """
+    
+    # '일정' -> 'calendar.create'
+    if "일정" in user_input or "캘린더" in user_input:
+        return {
+            "intent": user_input,
+            "steps": [{"tool": "calendar", "op": "create", "args": {"title": user_input}}]
+        }
+        
+    # '메일' -> 'mail.compose' (안전한 작업)
+    # '메일 보내줘' -> 'mail.send' (고위험 작업) - 향후 LLM이 구분
+    if "메일 보내줘" in user_input:
+         return {
+            "intent": user_input,
+            "steps": [{"tool": "mail", "op": "send", "args": {"subject": user_input, "to": ["placeholder@example.com"]}}]
+        }
+    if "메일" in user_input:
+        return {
+            "intent": user_input,
+            "steps": [{"tool": "mail", "op": "compose", "args": {"subject": user_input}}]
+        }
+        
+    # 기본값 -> 'nlp.summarize'
+    return {
+        "intent": user_input,
+        "steps": [{"tool": "nlp", "op": "summarize", "args": {"text": user_input}}]
+    }
