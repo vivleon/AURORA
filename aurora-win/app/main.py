@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Body
 
 # --- 고급 서비스 임포트 (aurora-win/aurora-win/app/main.py 기반) ---
 from app.aurora_dashboard_api_stub import dash_router
@@ -17,6 +17,9 @@ from app.core.planner_consent_gate import evaluate_consent, Plan
 from app.security.policy import Policy
 from app.memory.bandit import Bandit # 업데이트된 Bandit (Thompson Sampling)
 from app.memory.store import DB # DB 스텁 (필요시)
+
+# --- [신규] Routine Builder 임포트 ---
+from app.core.routine import load_routine_data
 
 # --- 환경 설정 ---
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -118,7 +121,6 @@ async def execute_endpoint(req: dict, fast_req: Request):
     # 동의가 필요 없으므로 즉시 실행합니다.
     #
     # 중요: executor.run의 시그니처를 수정하여 'audit' 대신 'collector'를 전달합니다.
-    # (executor.py 파일 자체도 수정 필요 - 아래 2번 항목 참조)
     result = await executor.run(
         plan_obj, 
         policy=policy, 
@@ -128,3 +130,58 @@ async def execute_endpoint(req: dict, fast_req: Request):
         session_id=session_id
     )
     return {"status": "ok", "result": result}
+
+
+# --- [신규] Routine Builder API (Week 2 목표) ---
+@app.post("/routine/run")
+async def run_routine_endpoint(
+    req: dict = Body(...), 
+    fast_req: Request = None
+):
+    """
+    data/routines/에 정의된 YAML 루틴을 이름으로 실행합니다.
+    (30일 계획 섹션 4 API)
+    """
+    routine_name = req.get("name")
+    if not routine_name:
+        raise HTTPException(400, "Routine 'name' is missing")
+
+    try:
+        # app/core/routine.py에서 YAML 로드
+        routine_data = load_routine_data(routine_name)
+    except FileNotFoundError as e:
+        raise HTTPException(404, detail=str(e))
+    except (ValueError, PermissionError) as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to load routine: {e}")
+
+    # 실행을 위해 Plan 객체 형식으로 변환
+    plan_obj = {
+        "intent": f"Routine: {routine_name}",
+        "steps": routine_data.get("steps", [])
+    }
+    
+    session_id = req.get("session_id", f"routine-{routine_name}")
+
+    # [중요] 루틴도 동의 게이트를 통과해야 합니다.
+    risk = verifier.assess_risk(plan_obj, policy)
+    if risk == "high":
+        # 고위험 루틴은 자동 실행을 차단하고,
+        # 향후 루틴용 동의 UI가 구현되어야 함을 알림.
+        raise HTTPException(403, 
+            detail=f"Routine '{routine_name}' contains high-risk steps and cannot be run automatically.")
+
+    # app state에서 의존성 가져오기
+    collector = fast_req.app.state.collector
+    
+    # 기존 Executor 재사용
+    result = await executor.run(
+        plan_obj, 
+        policy=policy, 
+        collector=collector,
+        db=db, 
+        bandit=bandit,
+        session_id=session_id
+    )
+    return {"status": "ok", "routine": routine_name, "result": result}
