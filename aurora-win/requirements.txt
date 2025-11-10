@@ -28,4 +28,7 @@ Utils
 
 python-dotenv
 rich
+
 jinja2
+
+ics # [신규] iCalendar (ICS) 파일 파싱용
