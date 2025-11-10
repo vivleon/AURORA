@@ -2,6 +2,7 @@
 Aurora Consent Event Collector
 - 동의 결정을 'consent' 테이블에 기록하고, 'events_raw' 테이블에도 미러링합니다.
 - 만료된 동의를 'expired'로 처리하는 백그라운드 스위퍼를 실행합니다.
+- (app/main.py에서 이 파일을 임포트합니다)
 """
 from __future__ import annotations
 import asyncio
@@ -13,6 +14,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+# METRICS_DB_PATH는 app/main.py에서 환경 변수를 통해 주입됩니다.
 DB_PATH = Path(os.getenv("METRICS_DB_PATH", "data/metrics.db"))
 
 @dataclass
@@ -49,6 +51,7 @@ class ConsentCollector:
 
     def _connect(self) -> sqlite3.Connection:
         try:
+            # DB 파일이 없으면 schema.sql을 실행해야 합니다.
             conn = sqlite3.connect(self.db_path.as_posix())
             conn.row_factory = sqlite3.Row
             return conn
@@ -58,16 +61,21 @@ class ConsentCollector:
 
     async def record(self, ev: ConsentEvent):
         """
-        동의 결정을 DB에 기록합니다.
+        동의 결정을 DB에 기록합니다. (consent_api.py에서 호출)
         """
         ts = ev.ts or datetime.utcnow().timestamp()
+        
+        # 쓰기 작업은 I/O 바운드이므로 비동기 스레드에서 실행
+        await asyncio.to_thread(self._write_to_db, ts, ev)
+
+    def _write_to_db(self, ts: float, ev: ConsentEvent):
         conn = self._connect()
         if not conn:
             return
             
         try:
             cur = conn.cursor()
-            # 1. 'consent' 테이블에 상세 기록
+            # 1. 'consent' 테이블에 상세 기록 (schema.sql [cite: vivleon/aurora/AURORA-main/aurora-win/schema.sql] 참조)
             cur.execute(
                 """
                 INSERT INTO consent(ts, session_id, action, decision, risk, ttl_hours)
@@ -98,7 +106,8 @@ class ConsentCollector:
         while not self._stop.is_set():
             try:
                 await asyncio.sleep(self.sweep_interval)
-                self._expire_due()
+                # 만료 작업은 동기/차단(blocking) 작업이므로 스레드에서 실행
+                await asyncio.to_thread(self._expire_due)
             except asyncio.CancelledError:
                 break
             except Exception as e:

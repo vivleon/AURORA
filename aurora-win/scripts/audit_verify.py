@@ -2,11 +2,14 @@ import json
 import hashlib
 import sys
 import os
+from pathlib import Path
+
+# (scripts/schedule_audit_weekly.xml [cite: vivleon/aurora/AURORA-main/aurora-win/scripts/schedule_audit_weekly.xml]가 이 스크립트를 호출)
 
 def verify_hash_chain(log_path: str):
     """
-    audit.log 파일의 해시체인 무결성을 검증합니다.
-    (schedule_audit_weekly.xml이 호출)
+    data/audit.log 파일의 해시체인 무결성을 검증합니다.
+    (AuditMiddleware의 로그 포맷을 기준으로 검증)
     """
     if not os.path.exists(log_path):
         print(f"Error: Log file not found at {log_path}")
@@ -44,24 +47,26 @@ def verify_hash_chain(log_path: str):
                 # 2. 이전 해시 일치 여부 검사
                 if prev_hash != expected_prev_hash:
                     print(f"[FAIL] Line {line_number}: Chain broken!")
-                    print(f"  Expected prev_hash: {expected_prev_hash}")
-                    print(f"  Got prev_hash:      {prev_hash}")
+                    print(f"  Expected prev_hash: {expected_prev_hash[:12]}...")
+                    print(f"  Got prev_hash:      {prev_hash[:12]}...")
                     is_valid = False
                     # 강제로 체인을 이어가서 추가 오류 검사
                     expected_prev_hash = current_hash
                     continue
 
                 # 3. 현재 해시 무결성 검사
+                # AuditMiddleware 포맷: 'hash'와 'prev'를 제외한 모든 것을 직렬화
                 entry_data_to_hash = entry.copy()
                 del entry_data_to_hash['hash']
+                del entry_data_to_hash['prev'] # 'prev'도 해시 계산에서 제외
                 
                 raw = json.dumps(entry_data_to_hash, sort_keys=True).encode('utf-8')
                 recalculated_hash = hashlib.sha256(raw).hexdigest()
 
                 if current_hash != recalculated_hash:
                     print(f"[FAIL] Line {line_number}: Data tampered! Hash mismatch.")
-                    print(f"  Recorded hash:    {current_hash}")
-                    print(f"  Recalculated hash: {recalculated_hash}")
+                    print(f"  Recorded hash:    {current_hash[:12]}...")
+                    print(f"  Recalculated hash: {recalculated_hash[:12]}...")
                     is_valid = False
 
                 # 다음 라인을 위해 예상 해시 업데이트
@@ -70,6 +75,8 @@ def verify_hash_chain(log_path: str):
     except IOError as e:
         print(f"Error reading file: {e}")
         return False
+    except EOFError:
+        pass # 파일 끝
 
     if is_valid:
         print(f"\n[SUCCESS] Verification complete. All {line_number} entries are valid.")
@@ -79,10 +86,12 @@ def verify_hash_chain(log_path: str):
     return is_valid
 
 if __name__ == "__main__":
+    default_log = Path(__file__).parent.parent / "data" / "audit.log"
+    
     if len(sys.argv) < 2:
-        print("Usage: python scripts/audit_verify.py <path_to_audit_log>")
-        sys.exit(1)
+        log_file_path = default_log
+    else:
+        log_file_path = Path(sys.argv[1])
         
-    log_file_path = sys.argv[1]
-    if not verify_hash_chain(log_file_path):
+    if not verify_hash_chain(str(log_file_path)):
         sys.exit(1)

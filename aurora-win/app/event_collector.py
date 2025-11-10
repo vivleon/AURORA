@@ -1,6 +1,6 @@
 """
 Aurora Event Collector (Base Class)
-- Async ingestion for metrics.db (SQLite) + periodic rollups
+- Async ingestion for metrics.db (SQLite) [cite: vivleon/aurora/AURORA-main/aurora-win/data/metrics.db] + periodic rollups
 """
 from __future__ import annotations
 import asyncio
@@ -31,7 +31,7 @@ class EventCollector:
         self._flush_task: Optional[asyncio.Task] = None
         self._rollup_task: Optional[asyncio.Task] = None
         self._stop = asyncio.Event()
-        self._known_tables: Set[str] = set()
+        self._known_tables: Set[str] = set() # DB 테이블 캐시
         self._ensure_db()
 
     # ------------- public API -------------
@@ -65,7 +65,10 @@ Flush: {self.cfg.flush_interval}s, Rollup: {self.cfg.rollup_interval}s")
         print("[EventCollector] Stopped.")
 
     async def enqueue(self, event: Dict[str, Any]):
-        # 기본값 및 정제
+        """
+        이벤트를 비동기 큐에 추가합니다. (executor.py [cite: vivleon/aurora/AURORA-main/aurora-win/app/core/executor.py]가 호출)
+        """
+        # 기본값 및 정제 (schema.sql [cite: vivleon/aurora/AURORA-main/aurora-win/schema.sql] 참조)
         e = {
             "ts": event.get("ts") or datetime.utcnow().timestamp(),
             "type": event.get("type", "task"),
@@ -89,14 +92,13 @@ Flush: {self.cfg.flush_interval}s, Rollup: {self.cfg.rollup_interval}s")
     # ------------- internals -------------
     def _ensure_db(self):
         self.cfg.db_path.parent.mkdir(parents=True, exist_ok=True)
-        # 'schema.sql'이 이 DB를 생성/초기화해야 함
         if not self.cfg.db_path.exists():
             print(f"[WARN] EventCollector: DB file not found at {self.cfg.db_path}. \
 It will be created, but 'schema.sql' must be run.")
-        # 테이블 존재 여부 캐시
         self._check_tables()
 
     def _check_tables(self, conn: sqlite3.Connection = None):
+        """DB에 필요한 테이블이 있는지 확인 (캐시)"""
         local_conn = False
         if conn is None:
             conn = self._connect()
@@ -125,25 +127,33 @@ It will be created, but 'schema.sql' must be run.")
             return None
 
     async def _flusher(self):
+        """
+        백그라운드 태스크: 큐의 이벤트를 주기적으로 DB에 배치(batch) 쓰기
+        """
         while not self._stop.is_set():
             try:
-                await asyncio.sleep(self.cfg.flush_interval)
-                batch: List[Dict[str, Any]] = []
+                # 첫 번째 아이템을 기다림
+                first_item = await asyncio.wait_for(self._q.get(), self.cfg.flush_interval)
+                batch = [first_item]
+                # 큐가 빌 때까지 또는 배치 크기에 도달할 때까지 나머지 아이템 수집
                 while len(batch) < self.cfg.batch_size:
                     batch.append(self._q.get_nowait())
+            except asyncio.TimeoutError:
+                continue # 타임아웃 (배치 비었음)
             except asyncio.QueueEmpty:
-                if not batch:
-                    continue # 배치 비었으면 스킵
+                continue # 큐 비었음
             except asyncio.CancelledError:
                 break # 중지
                 
             if batch:
                 try:
-                    self._write_batch(batch)
+                    # DB 쓰기 (동기 작업을 스레드에서 실행)
+                    await asyncio.to_thread(self._write_batch, batch)
                 except Exception as e:
                     print(f"[EventCollector ERROR] Flusher failed to write batch: {e}")
 
     async def _flush_remaining(self):
+        """앱 종료 시 큐에 남은 모든 항목 쓰기"""
         batch = []
         while not self._q.empty():
             try:
@@ -153,13 +163,14 @@ It will be created, but 'schema.sql' must be run.")
         if batch:
             print(f"[EventCollector] Writing final {len(batch)} events.")
             try:
-                self._write_batch(batch)
+                await asyncio.to_thread(self._write_batch, batch)
             except Exception as e:
                 print(f"[EventCollector ERROR] Final flush failed: {e}")
 
     def _write_batch(self, batch: List[Dict[str, Any]]):
         """
-        이 메서드는 'event_collector_redis_patch.py'에서 오버라이드됩니다.
+        이벤트를 DB에 씁니다. (동기)
+        [중요] 이 메서드는 event_collector_redis_patch.py [cite: vivleon/aurora/AURORA-main/aurora-win/app/event_collector_redis_patch.py]에서 오버라이드됩니다.
         """
         conn = self._connect()
         if not conn:
@@ -191,18 +202,23 @@ Run 'schema.sql'. Discarding {len(batch)} events.")
                 conn.close()
 
     async def _roller(self):
-        # 주기적인 롤업 집계기 (1m/5m/1h 윈도우)
+        """
+        백그라운드 태스크: 주기적인 롤업(rollup) 집계기 (1m/5m/1h 윈도우)
+        """
         while not self._stop.is_set():
             try:
                 await asyncio.sleep(self.cfg.rollup_interval)
-                self._compute_rollups()
+                await asyncio.to_thread(self._compute_rollups) # DB 작업을 스레드에서 실행
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                # 집계 오류가 서비스 중단을 일으키지 않도록 함
                 print(f"[EventCollector ERROR] Rollup failed: {e}")
 
     def _compute_rollups(self):
+        """
+        롤업을 계산하고 rollup_* 테이블에 UPSERT합니다. (동기)
+        (raw_to_rollup_p_95.py [cite: vivleon/aurora/AURORA-main/aurora-win/raw_to_rollup_p_95.py]의 로직과 유사)
+        """
         now = datetime.utcnow().timestamp()
         windows = [60, 300, 3600] # 1m, 5m, 1h
         
@@ -241,7 +257,7 @@ Run 'schema.sql'. Skipping rollups.")
                 # UPSERT
                 for b, v in buckets.items():
                     lat = sorted(v["lat"]) if v["lat"] else []
-                    p95 = lat[int(0.95*len(lat))-1] if lat else 0
+                    p95 = lat[int(0.95*len(lat))-1] if lat and len(lat) > 0 else 0
                     table = {60: "rollup_1m", 300: "rollup_5m", 3600: "rollup_1h"}[w]
                     cur.execute(
                         f"""

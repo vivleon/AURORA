@@ -1,18 +1,13 @@
 """
 Aurora Consent UI-API Bridge (FastAPI Router)
-- Exposes REST endpoints to request consent and submit decisions
-- Integrates with ConsentCollector and writes audit-friendly events
-
-Mount:
-    from consent_api import consent_router
-    app.include_router(consent_router, prefix="/consent")
+- (app/main.py에서 이 파일을 임포트합니다)
 """
 from __future__ import annotations
 import uuid
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -21,7 +16,7 @@ try:
     # app/consent_collector.py에서 임포트
     from app.consent_collector import ConsentCollector, ConsentEvent
 except ImportError:
-    print("[ERROR] consent_api: Failed to import ConsentCollector. Check file location.")
+    print("[ERROR] consent_api: Failed to import ConsentCollector. Check app/consent_collector.py")
     ConsentCollector = None
     ConsentEvent = None
 
@@ -60,6 +55,7 @@ def request_consent(req: ConsentRequest):
     (UI) -> (Server)
     UI가 동의 모달을 띄우기 직전에 호출하여, 
     안전한 'consent_id' (토큰)을 발급받습니다.
+    (webui/components/ConsentModal.tsx [cite: vivleon/aurora/AURORA-main/aurora-win/webui/components/ConsentModal.tsx]가 호출)
     """
     cid = str(uuid.uuid4())
     issued = datetime.utcnow().isoformat()+"Z"
@@ -81,7 +77,7 @@ async def submit_decision(dec: ConsentDecision, request: Request):
     """
     (UI) -> (Server)
     사용자가 모달에서 [동의] 또는 [거부]를 클릭하면 호출됩니다.
-    결정을 DB에 기록합니다.
+    결정을 DB('consent' 테이블)에 기록합니다.
     """
     rec = _PENDING.pop(dec.consent_id, None)
     if not rec:
@@ -90,6 +86,7 @@ async def submit_decision(dec: ConsentDecision, request: Request):
         raise HTTPException(status_code=410, detail="Consent pending window expired")
 
     try:
+        # app.state에 주입된 ConsentCollector 가져오기
         consent_collector: ConsentCollector = request.app.state.consent
     except Exception:
         print("[ERROR] consent_api: 'app.state.consent' (ConsentCollector) not found.")

@@ -1,5 +1,5 @@
 # app/memory/vectorstore.py (수정)
-# FAISS 인덱스 로드/저장, 추가(add), 검색(search) 기능 완성
+# 'get_embedding' 스텁을 'model_runner.py'와 연동
 
 import os
 from pathlib import Path
@@ -11,14 +11,36 @@ except ImportError:
     print("[WARN] 'faiss-cpu' not installed. Vectorstore (RAG) will not work. (pip install faiss-cpu)")
     faiss = None
 
-# TODO: 임베딩 모델 로직을 model_runner.py로 이동/통합해야 함
-# 임시로 스텁 함수 생성
-async def get_embedding(text: str) -> np.ndarray:
-    # 실제로는 app/router/model_runner.py의
-    # "local://onnx/e5-small" 모델을 호출해야 함
+# model_runner에서 추론 함수 임포트
+try:
+    from app.router.model_runner import run_inference
+except ImportError:
+    print("[ERROR] vectorstore.py: Failed to import 'run_inference'.")
+    run_inference = None
+
+async def get_embedding(text: str, task: str = "embedding") -> np.ndarray:
+    """
+    model_runner를 호출하여 임베딩 벡터를 가져옵니다.
+    (model_router.json [cite: vivleon/aurora/AURORA-main/aurora-win/app/router/model_router.json]의 "local_embed" 규칙이 사용됩니다)
+    """
     dim = 384 # e5-small-v2
-    print(f"[Vectorstore] Stub embedding generated for: {text[:20]}...")
-    return np.random.rand(1, dim).astype('float32')
+    
+    if not run_inference:
+        print(f"[Vectorstore WARN] Fallback stub embedding generated for: {text[:20]}...")
+        return np.random.rand(1, dim).astype('float32')
+
+    result = await run_inference(
+        task=task,
+        prompt=text,
+        risk="low" # 임베딩은 항상 low-risk
+    )
+    
+    if "vector" in result and result["vector"]:
+        # (N, dim) 형태의 2D 배열로 반환
+        return np.array([result["vector"]]).astype('float32')
+    else:
+        print(f"[Vectorstore ERROR] Failed to get embedding for: {text[:20]}... Error: {result.get('error')}")
+        return np.random.rand(1, dim).astype('float32') # 오류 시 랜덤 벡터 반환
 
 class VectorStore:
     def __init__(self, index_path: str = "data/embeddings/aurora.index", dim: int = 384):
@@ -133,7 +155,11 @@ class VectorStore:
                 print(f"[Vectorstore WARN] No ID mapping found for FAISS ID: {faiss_id}")
                 continue
                 
-            doc_id, chunk_idx_str = map_key.split(":", 1)
+            try:
+                doc_id, chunk_idx_str = map_key.split(":", 1)
+            except ValueError:
+                print(f"[Vectorstore WARN] Invalid map key format: {map_key}")
+                continue
             
             results.append({
                 "doc_id": doc_id,
@@ -145,4 +171,10 @@ class VectorStore:
 
 # --- 싱글톤 인스턴스 ---
 # (RAG 프리뷰 라우터 등에서 이 인스턴스를 공유하여 사용)
-_vectorstore_instance = VectorStore()
+_vectorstore_instance: Optional[VectorStore] = None
+
+def get_vectorstore():
+    global _vectorstore_instance
+    if _vectorstore_instance is None:
+        _vectorstore_instance = VectorStore()
+    return _vectorstore_instance

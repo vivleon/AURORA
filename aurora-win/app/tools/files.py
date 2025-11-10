@@ -1,41 +1,91 @@
 # app/tools/files.py
-# 'files.delete'는 verifier.py와 planner_consent_gate.py에 의해
-# 'high' 리스크로 간주됩니다.
+# (requirements.txt에 'aiofiles' 추가 권장)
+import os
+from pathlib import Path
+
+try:
+    import aiofiles
+except ImportError:
+    print("[WARN] 'aiofiles' not installed. File tools will use sync methods. (pip install aiofiles)")
+    aiofiles = None
+
+# 보안을 위해 작업 루트를 'data/files'로 제한 (예시)
+# (policy.json [cite: vivleon/aurora/AURORA-main/aurora-win/data/policy.json]의 'files.read' 스코프와 연동 필요)
+FILES_ROOT = Path(os.getenv("FILES_ROOT", "data/files"))
+FILES_ROOT.mkdir(parents=True, exist_ok=True)
+
+def _secure_path(path: str) -> Path:
+    """Directory Traversal 공격을 방지합니다."""
+    if ".." in path or path.startswith(("/", "\\")):
+        raise PermissionError("Invalid path format (absolute or traversal)")
+        
+    full_path = (FILES_ROOT / path).resolve()
+    
+    if FILES_ROOT.resolve() not in full_path.parents:
+         raise PermissionError("Access Denied: Path is outside the allowed directory")
+         
+    return full_path
 
 async def read(args, policy, db):
     """
-    파일 읽기 (향후 policy.allowed(f"files.read.{path}") 검사 필요)
+    (제한된 경로에서) 비동기 파일 읽기
     """
-    path = args.get("path", "unknown_file.txt")
-    print(f"[Tool] Reading file: {path}")
-    # TODO: 실제 파일 읽기 로직
-    # with open(path, 'r', encoding='utf-8') as f:
-    #     content = f.read()
-    return {"content": f"file content placeholder for {path}"}
+    path_str = args.get("path")
+    if not path_str:
+        raise ValueError("path is required")
+    
+    try:
+        path = _secure_path(path_str)
+        print(f"[Tool.Files] Reading from: {path}")
+        
+        if aiofiles:
+            async with aiofiles.open(path, 'r', encoding='utf-8') as f:
+                content = await f.read()
+        else: # 폴백
+            content = path.read_text('utf-8')
+            
+        return {"content": content}
+    except Exception as e:
+        return {"content": None, "error": str(e)}
+
+async def write(args, policy, db):
+    """
+    (제한된 경로에) 비동기 파일 쓰기
+    """
+    path_str = args.get("path")
+    content = args.get("content", "")
+    if not path_str:
+        raise ValueError("path is required")
+        
+    try:
+        path = _secure_path(path_str)
+        print(f"[Tool.Files] Writing {len(content)} chars to: {path}")
+        
+        if aiofiles:
+            async with aiofiles.open(path, 'w', encoding='utf-8') as f:
+                await f.write(content)
+        else: # 폴백
+            path.write_text(content, 'utf-8')
+            
+        return {"written": True, "path": str(path)}
+    except Exception as e:
+        return {"written": False, "error": str(e)}
 
 async def delete(args, policy, db):
     """
     ! HIGH-RISK !
-    파일 삭제
+    (제한된 경로에서) 파일 삭제
     """
-    path = args.get("path")
-    if not path:
-        raise ValueError("Path is required for delete operation")
+    path_str = args.get("path")
+    if not path_str:
+        raise ValueError("path is required")
         
-    print(f"[Tool] Deleting file: {path}")
-    # TODO: 실제 파일 삭제 로직
-    # import os
-    # os.remove(path)
-    return {"deleted": True, "path": path}
-
-async def write(args, policy, db):
-    """
-    파일 쓰기
-    """
-    path = args.get("path", "output.txt")
-    content = args.get("content", "")
-    print(f"[Tool] Writing to file: {path}")
-    # TODO: 실제 파일 쓰기 로직
-    # with open(path, 'w', encoding='utf-8') as f:
-    #     f.write(content)
-    return {"written": True, "path": path}
+    try:
+        path = _secure_path(path_str)
+        print(f"[Tool.Files] Deleting: {path}")
+        
+        os.remove(path) # 동기 삭제 (위험하므로 신중)
+        
+        return {"deleted": True, "path": str(path)}
+    except Exception as e:
+        return {"deleted": False, "error": str(e)}

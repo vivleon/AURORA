@@ -11,7 +11,11 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 # app.redis_event_bus에서 버스 임포트
-from app.redis_event_bus import get_redis_bus
+try:
+    from app.redis_event_bus import get_redis_bus
+except ImportError:
+    print("[ERROR] event_sse_redis_router: Failed to import redis_event_bus.")
+    get_redis_bus = None
 
 sse_router = APIRouter()
 
@@ -22,6 +26,10 @@ async def _gen() -> AsyncGenerator[str, None]:
     """
     Redis 채널을 구독하고 SSE 이벤트를 생성하는 비동기 제너레이터
     """
+    if not get_redis_bus:
+        yield f"event: error\ndata: redis_event_bus.py not found\n\n"
+        return
+
     bus = get_redis_bus(REDIS_URL, CHANNEL)
     
     # 클라이언트 연결 즉시 핑(ping) 전송
@@ -38,6 +46,6 @@ async def _gen() -> AsyncGenerator[str, None]:
 @sse_router.get("/stream")
 def stream():
     """
-    실시간 이벤트 스트림 SSE 엔드포인트
+    실시간 이벤트 스트림 SSE 엔드포인트 (/events/stream)
     """
     return StreamingResponse(_gen(), media_type="text/event-stream")
