@@ -1,5 +1,5 @@
 // Simple Node smoke script to probe core endpoints
-// (scripts_smoke.js [cite: vivleon/aurora/AURORA-main/aurora-win/aurora-win/scripts_smoke.js]를 .mjs로 리네임)
+// (scripts_smoke.js [cite: vivleon/aurora/AURORA-main/aurora-win/scripts_smoke.js]를 .mjs로 리네임)
 // Usage: node scripts/smoke.mjs http://localhost:8000
 
 const base = process.argv[2] || process.env.BASE_URL || 'http://localhost:8000';
@@ -17,15 +17,15 @@ const fetchJson = async (url, options = {}) => {
 const main = async () => {
   console.log(`[SMOKE] Base: ${base}`);
   
-  // 1. 대시보드 API 스모크
+  // 1. 대시보드 API 스모크 (aurora_dashboard_api_stub.py)
   const kpi = await fetchJson(`${base}/dash/kpi?window=1h`);
   console.log('[OK] /dash/kpi:', kpi.kpi);
 
   const latency = await fetchJson(`${base}/dash/latency?window=1h`);
   console.log(`[OK] /dash/latency: Found ${latency.series.length} series.`);
 
-  // 2. 핵심 인지 API 스모크 (Plan -> Execute)
-  const planReq = { input: "내일 일정 알려줘" };
+  // 2. 핵심 인지 API 스모크 (Plan -> Execute) (main.py)
+  const planReq = { input: "내일 일정 알려줘" }; // planner.py가 "calendar.create"로 라우팅
   const plan = await fetchJson(`${base}/aurora/plan`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -33,6 +33,7 @@ const main = async () => {
   });
   console.log('[OK] /aurora/plan:', plan.plan.steps[0].tool);
   
+  // 3. 실행 (calendar.create는 'low' 리스크이므로 동의가 필요 없음)
   const execReq = { plan: plan.plan, session_id: "smoke-test" };
   const exec = await fetchJson(`${base}/aurora/execute`, {
     method: 'POST',
@@ -41,9 +42,31 @@ const main = async () => {
   });
   
   if (exec.requires_consent) {
-    console.log('[OK] /aurora/execute: Received consent request (as expected).');
+    console.error('[FAIL] /aurora/execute: Safe call required consent!');
   } else {
-    console.log('[OK] /aurora/execute:', exec.result[0].out);
+    console.log('[OK] /aurora/execute (safe):', exec.result[0].out);
+  }
+
+  // 4. 고위험 작업 테스트 (Plan -> Execute -> Consent)
+  const planRiskReq = { input: "메일 보내줘" }; // planner.py가 "mail.send"로 라우팅
+  const planRisk = await fetchJson(`${base}/aurora/plan`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(planRiskReq)
+  });
+  
+  const execRiskReq = { plan: planRisk.plan, session_id: "smoke-test-risk" };
+  const execRisk = await fetchJson(`${base}/aurora/execute`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(execRiskReq)
+  });
+
+  if (execRisk.requires_consent) {
+    console.log('[OK] /aurora/execute (high-risk): Received consent request successfully.');
+    console.log('  Action:', execRisk.requires_consent.action);
+  } else {
+    console.error('[FAIL] /aurora/execute (high-risk): Did not return consent request!');
   }
 
   console.log('\n[SMOKE] All endpoints smoke tested successfully.');
