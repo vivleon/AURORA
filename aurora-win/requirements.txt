@@ -10,6 +10,9 @@ playwright
 pytesseract
 numpy
 pandas
+Pillow # (screen.py의 ImageGrab에 필요)
+aiofiles # (files.py의 비동기 I/O에 권장)
+httpx # (model_runner.py의 로컬/클라우드 LLM 호출에 필요)
 
 Storage & Events
 
