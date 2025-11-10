@@ -1,17 +1,21 @@
 import json
 import random
 import os
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 
 class Bandit:
     """
-    Bandit-Lite (Thompson Sampling)
-    'docs/aurora_self_learning_module.md'의 설계에 따라 구현되었습니다.
-    보상(reward)은 -1.0 ~ +1.5 범위로 정규화되어야 합니다.
+    [업그레이드] Contextual Bandit (Thompson Sampling)
+    'docs/aurora_self_learning_module.md'의 설계를 기반으로,
+    'context_key'를 실제 사용하여 컨텍스트별 가중치를 관리합니다.
+    
+    - state 구조: {"context_key": {"tool_name": {"alpha": 1.0, "beta": 1.0}}}
+    - 'context_key' 예: "intent:schedule", "time:morning"
     """
     def __init__(self, state_path="data/bandit_state.json"):
         self.state_path = state_path
-        self.state: Dict[str, Dict[str, float]] = {}
+        # [수정] 중첩된 Dict 구조로 변경
+        self.state: Dict[str, Dict[str, Dict[str, float]]] = {}
         self.tools: Set[str] = set()
         self._load_state()
 
@@ -20,7 +24,9 @@ class Bandit:
             if os.path.exists(self.state_path):
                 with open(self.state_path, 'r', encoding='utf-8') as f:
                     self.state = json.load(f)
-                    self.tools = set(self.state.keys())
+                    # 모든 컨텍스트의 모든 도구를 tools 집합에 추가
+                    for context, tools in self.state.items():
+                        self.tools.update(tools.keys())
             else:
                 self.state = {}
         except (IOError, json.JSONDecodeError):
@@ -35,38 +41,51 @@ class Bandit:
         except IOError as e:
             print(f"[ERROR] Failed to save bandit state: {e}")
 
-    def _init_tool(self, tool: str):
-        if tool not in self.state:
-            # (mean: 0.0, count: 1) 대신 (alpha: 1, beta: 1)로 시작 (균일 분포)
-            # reward가 [0, 1] 범위라고 가정. (원래 설계는 -1.0 ~ 1.5)
-            # 보상 범위를 [0, 1]로 스케일링 (reward + 1.0) / 2.5
-            self.state[tool] = {"alpha": 1.0, "beta": 1.0}
-            self.tools.add(tool)
-
-    def select(self, context_key: str, tools: List[str]) -> str:
+    def _get_or_init_state(self, context_key: str, tool: str) -> Dict[str, float]:
         """
-        Thompson Sampling: 각 도구의 베타분포에서 샘플링하여 가장 높은 값을 반환합니다.
-        context_key는 향후 Contextual Bandit을 위해 유지됩니다.
+        [신규] 컨텍스트와 도구에 해당하는 state를 가져오거나 초기화합니다.
+        """
+        if context_key not in self.state:
+            self.state[context_key] = {}
+            
+        if tool not in self.state[context_key]:
+            # (alpha: 1, beta: 1)로 시작 (균일 분포)
+            self.state[context_key][tool] = {"alpha": 1.0, "beta": 1.0}
+            
+        self.tools.add(tool)
+        return self.state[context_key][tool]
+
+    def select(self, context_key: Optional[str], tools: List[str]) -> str:
+        """
+        Thompson Sampling: [수정] 'context_key'를 사용하여 해당 컨텍스트의
+        베타분포에서 샘플링하여 가장 높은 값을 반환합니다.
         """
         if not tools:
             raise ValueError("No tools provided to select from")
 
+        # [수정] 컨텍스트 키가 없으면 'global' 컨텍스트 사용
+        ctx = context_key or "global"
+
         samples: Dict[str, float] = {}
         for tool in tools:
-            self._init_tool(tool)
-            s = self.state[tool]
+            s = self._get_or_init_state(ctx, tool)
             # 베타 분포 (alpha, beta)에서 샘플링
-            samples[tool] = random.betavariate(s["alpha"], s["beta"])
+            try:
+                samples[tool] = random.betavariate(s["alpha"], s["beta"])
+            except ValueError: # alpha/beta가 0 이하일 경우 대비
+                samples[tool] = 0.5 
         
         return max(samples, key=samples.get)
 
-    def update(self, context_key: str, tool: str, reward: float):
+    def update(self, context_key: Optional[str], tool: str, reward: float):
         """
-        보상(reward)으로 도구의 분포(alpha/beta)를 업데이트합니다.
+        [수정] 'context_key'를 사용하여 해당 컨텍스트의 분포(alpha/beta)를 업데이트합니다.
         보상은 [0, 1] 범위로 정규화되어야 합니다.
         """
-        self._init_tool(tool)
-        s = self.state[tool]
+        # [수정] 컨텍스트 키가 없으면 'global' 컨텍스트 사용
+        ctx = context_key or "global"
+        
+        s = self._get_or_init_state(ctx, tool)
 
         # 설계 문서의 보상 (-1.0 ~ +1.5)을 [0, 1]로 정규화
         normalized_reward = (reward + 1.0) / 2.5 
