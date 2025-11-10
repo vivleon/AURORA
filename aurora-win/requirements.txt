@@ -32,3 +32,5 @@ rich
 jinja2
 
 ics # [신규] iCalendar (ICS) 파일 파싱용
+
+httpx # (app/router/model_runner.py 및 tests/integration/에서 API 호출에 필요)
