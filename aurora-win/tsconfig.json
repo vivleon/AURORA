@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{"name": "next"}],
+    "baseUrl": ".",
+    "paths": {
+      "@/components/*": ["webui/components/*"],
+      "@/hooks/*": ["webui/hooks/*"],
+      "@/lib/*": ["webui/lib/*"],
+      "@/pages/*": ["webui/pages/*"],
+      "@/webui_RagPanel": ["webui/webui_RagPanel.tsx"],
+      "@/webui_RagPreview": ["webui/webui_RagPreview.tsx"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "playwright_config.ts"
+  ],
+  "exclude": ["node_modules"]
+}
