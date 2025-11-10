@@ -1,69 +1,117 @@
 # app/tools/calendar.py
+import os
 import time
-from app.memory.store import DB # store.py의 DB 클래스 사용
-from . import notes # app/tools/notes.py 임포트
+import asyncio
+from pathlib import Path
 from typing import Dict, Any
+from datetime import datetime, timedelta
+
+try:
+    from ics import Calendar, Event
+except ImportError:
+    print("[WARN] 'ics' library not installed. Calendar tool will fail. (pip install ics)")
+    Calendar, Event = None, None
+
+from app.memory.store import DB
+
+# [신규] 로컬 iCalendar 파일 경로
+CALENDAR_PATH = Path(os.getenv("CALENDAR_PATH", "data/calendar/my_calendar.ics"))
+CALENDAR_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+def _load_calendar() -> Calendar:
+    """ICS 파일을 로드하거나 새로 생성합니다."""
+    if not Calendar:
+        raise ImportError("'ics' library is required")
+    
+    if CALENDAR_PATH.exists():
+        try:
+            with open(CALENDAR_PATH, 'r', encoding='utf-8') as f:
+                return Calendar(f.read())
+        except Exception as e:
+            print(f"[Tool.Calendar WARN] Failed to parse ICS file: {e}. Creating new.")
+    return Calendar()
+
+def _save_calendar(c: Calendar):
+    """ICS 파일을 디스크에 저장합니다."""
+    if not Calendar:
+        return
+    try:
+        with open(CALENDAR_PATH, 'w', encoding='utf-8') as f:
+            f.write(str(c))
+    except IOError as e:
+        print(f"[Tool.Calendar ERROR] Failed to save ICS file: {e}")
 
 async def create(args: Dict[str, Any], policy, db: DB):
     """
-    일정 생성을 요청받아, app/tools/notes.py의 save 함수를 호출하여
-    'notes' 테이블에 일정 정보를 저장합니다.
-    (schema.sql에 'notes' 테이블이 정의되어 있습니다.)
+    [업그레이드]
+    일정을 'notes' 테이블 대신 'data/calendar/my_calendar.ics' 파일에 저장합니다.
     """
     title = args.get("title", "Untitled Event")
-    when_str = args.get("when", "now") # TODO: timeparse.py 필요
+    when_str = args.get("when", "now")
     
-    print(f"[Tool.Calendar] Creating event via notes.save: {title} at {when_str}")
+    # (스텁) 'when' 파싱 로직 (timeparse.py 필요)
+    # 지금은 '지금'으로 고정합니다.
+    start_time = datetime.now()
     
+    print(f"[Tool.Calendar] Creating ICS event: {title} at {start_time.isoformat()}")
+
     try:
-        # notes.py의 save 함수를 직접 호출
-        result = await notes.save({
-            "title": f"Event: {title}",
-            "body": f"Scheduled for: {when_str}",
-            "pin": args.get("pin", False)
-        }, policy, db)
+        c = await asyncio.to_thread(_load_calendar)
         
-        return {"created": True, "note_id": result.get("note_id"), "title": title}
+        e = Event()
+        e.name = title
+        e.begin = start_time
+        e.duration = timedelta(hours=args.get("duration_hours", 1))
+        
+        c.events.add(e)
+        
+        await asyncio.to_thread(_save_calendar, c)
+        
+        return {"created": True, "ics_path": str(CALENDAR_PATH), "title": title}
         
     except Exception as e:
-        print(f"[Tool.Calendar ERROR] Failed to save note: {e}")
+        print(f"[Tool.Calendar ERROR] Failed to create ICS event: {e}")
         return {"created": False, "error": str(e)}
 
 async def list_slots(args: Dict[str, Any], policy, db: DB):
     """
-    (Auto-Scheduler 스텁)
-    'notes' 테이블에서 'Event:'로 시작하는 항목을 조회하여
-    "충돌"을 (시뮬레이션) 회피한 빈 슬롯을 제안합니다.
+    (Auto-Scheduler)
+    [업그레이드]
+    'my_calendar.ics' 파일을 읽어 실제 빈 슬롯을 제안합니다.
     """
     duration_min = args.get("duration_min", 30)
-    print(f"[Tool.Calendar] Finding free slots for {duration_min}min (stub)")
+    print(f"[Tool.Calendar] Finding free slots for {duration_min}min from ICS file.")
 
-    conn = db.connect()
-    if not conn:
-        return {"slots": [], "error": "DB connection failed"}
-        
     try:
-        cur = conn.cursor()
-        # 'notes' 테이블에서 기존 일정을 (스텁) 조회
-        cur.execute("SELECT title, body FROM notes WHERE title LIKE 'Event:%'")
-        existing_events = cur.fetchall()
+        c = await asyncio.to_thread(_load_calendar)
         
-        print(f"[Tool.Calendar] Found {len(existing_events)} existing events (stub check).")
+        # (스텁) 9시부터 18시까지 30분 단위로 검사
+        slots = []
+        check_start = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)
         
-        # 실제 구현: existing_events의 'body' (예: "Scheduled for: ...")를 파싱하여
-        # 요청된 duration_min과 충돌하지 않는 시간을 계산해야 합니다.
-        
-        # 여기서는 스텁으로 고정된 가용 슬롯을 반환합니다.
-        stub_slots = [
-            {"start": "2025-11-11T14:00:00", "end": "2025-11-11T15:00:00"},
-            {"start": "2025-11-12T10:00:00", "end": "2025-11-12T10:30:00"},
-            {"start": "2025-11-12T16:00:00", "end": "2025-11-12T18:00:00"},
-        ]
-        
-        return {"slots": stub_slots}
+        for i in range(18): # 9:00 ~ 17:30 (30분 * 18)
+            slot_start = check_start + timedelta(minutes=30 * i)
+            slot_end = slot_start + timedelta(minutes=duration_min)
+            
+            is_free = True
+            for e in c.events:
+                # (단순 충돌 감지)
+                if e.begin and e.end and (e.begin < slot_end) and (e.end > slot_start):
+                    is_free = False
+                    break
+            
+            if is_free:
+                slots.append({
+                    "start": slot_start.isoformat(),
+                    "end": slot_end.isoformat(),
+                })
+                if len(slots) >= 5: # 최대 5개 제안
+                    break
+                    
+            if slot_end.hour >= 18: # 18시 이후 슬롯은 중지
+                break
+                
+        return {"slots": slots}
         
     except Exception as e:
         return {"slots": [], "error": str(e)}
-    finally:
-        if conn:
-            conn.close()
