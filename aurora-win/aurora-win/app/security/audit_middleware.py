@@ -1,85 +1,89 @@
-"""
-Aurora Audit Writer Middleware
-- FastAPI middleware that writes append-only JSONL with hash chain
-- Integrate: app.add_middleware(AuditMiddleware, log_path="data/audit.log")
-"""
-from __future__ import annotations
-import json, hashlib, threading
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict
-
+import time
+import json
+import hashlib
+import os
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
 
 class AuditMiddleware(BaseHTTPMiddleware):
+    """
+    FastAPI 미들웨어. 모든 API 요청을 해시체인 감사 로그에 기록합니다.
+    (app/main.py (통합본)에서 사용됨)
+    이 로직은 app/security/hashlog.py의 로직을 계승합니다.
+    """
     def __init__(self, app, log_path: str = "data/audit.log"):
         super().__init__(app)
-        self.log_path = Path(log_path)
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.Lock()
-        self._prev_hash = self._load_prev_hash()
+        self.log_path = log_path
+        self.log_dir = os.path.dirname(log_path)
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir, exist_ok=True)
+        if not os.path.exists(self.log_path):
+            with open(self.log_path, 'w', encoding='utf-8') as f:
+                f.write("")
+        print(f"[Audit] Middleware initialized. Logging to: {self.log_path}")
 
-    def _load_prev_hash(self) -> str:
-        if not self.log_path.exists():
-            return ""
+    def _get_last_hash(self) -> str:
+        """
+        로그 파일의 마지막 해시를 읽어옵니다.
+        """
+        last_hash = "0" * 64
         try:
-            # read last non-empty line
-            with self.log_path.open("rb") as f:
-                f.seek(0, 2)
-                size = f.tell()
-                block = min(8192, size)
-                while size > 0:
-                    size -= block
-                    f.seek(size)
-                    chunk = f.read(block)
-                    lines = chunk.splitlines()
-                    if lines:
-                        last = lines[-1].strip()
-                        if last:
-                            rec = json.loads(last)
-                            return rec.get("hash", "")
-        except Exception:
-            return ""
-        return ""
+            with open(self.log_path, 'rb') as f:
+                # 마지막 줄을 효율적으로 찾기
+                try:
+                    f.seek(-1024, os.SEEK_END)
+                except IOError:
+                    f.seek(0)
+                
+                last_line = f.readlines()[-1].decode('utf-8')
+                last_entry = json.loads(last_line)
+                last_hash = last_entry.get('hash', last_hash)
+        except (IOError, IndexError, json.JSONDecodeError):
+            # 파일이 비어있거나 손상된 경우, 제네시스 해시 사용
+            pass
+        return last_hash
 
-    @staticmethod
-    def _sha256_event(event: Dict[str, Any]) -> str:
-        b = json.dumps(event, sort_keys=True, separators=(",", ":")).encode()
-        return hashlib.sha256(b).hexdigest()
-
-    def _append_event(self, event: Dict[str, Any]):
-        event.setdefault("ts", datetime.utcnow().isoformat()+"Z")
-        line = {
-            "event": event,
-            "prev": self._prev_hash,
-        }
-        curr_hash = self._sha256_event(event)
-        line["hash"] = curr_hash
-        with self._lock:
-            with self.log_path.open("ab") as f:
-                f.write((json.dumps(line, separators=(",", ":")) + "\n").encode())
-            self._prev_hash = curr_hash
+    def _record_entry(self, entry_data: dict) -> str:
+        """
+        새 로그 항목을 해시체인으로 기록합니다.
+        """
+        prev_hash = self._get_last_hash()
+        entry_data["prev"] = prev_hash
+        
+        # 해시 계산
+        raw = json.dumps(entry_data, sort_keys=True).encode('utf-8')
+        digest = hashlib.sha256(raw).hexdigest()
+        entry_data["hash"] = digest
+        
+        # 파일에 추가 (JSONL)
+        try:
+            with open(self.log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(entry_data, ensure_ascii=False) + "\n")
+        except IOError as e:
+            print(f"[Audit ERROR] Failed to write audit log: {e}")
+            
+        return digest
 
     async def dispatch(self, request: Request, call_next):
-        # Pre: trace seeds
-        meta = {
-            "type": "http",
-            "path": request.url.path,
-            "method": request.method,
-            "client": request.client.host if request.client else None,
+        start_time = time.time()
+        
+        # 요청 정보 기록 (중요: body는 로깅하지 않음 - 민감 정보)
+        entry = {
+            "ts": start_time,
+            "actor": request.client.host if request.client else "unknown",
+            "action": f"API:{request.method}:{request.url.path}",
+            "payload": {"query_params": str(request.query_params)},
         }
-        try:
-            response: Response = await call_next(request)
-            meta.update({
-                "status": response.status_code,
-                "outcome": "success" if response.status_code < 400 else "error"
-            })
-        except Exception as e:
-            meta.update({"status": 500, "outcome": "error", "err": type(e).__name__})
-            self._append_event(meta)
-            raise
-        else:
-            self._append_event(meta)
-            return response
+        
+        response = await call_next(request)
+        
+        process_time = (time.time() - start_time) * 1000
+        
+        # 응답 정보 추가
+        entry["status_code"] = response.status_code
+        entry["latency_ms"] = int(process_time)
+        
+        # 해시체인 기록
+        self._record_entry(entry)
+        
+        return response

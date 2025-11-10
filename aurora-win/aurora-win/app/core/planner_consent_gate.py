@@ -1,52 +1,52 @@
-"""
-Planner Consent Gate
-- Hook for cognition pipeline: before executing a high-risk plan, emit a consent request payload
-- Returns either {"proceed": True} or {"requires_consent": payload}
-
-Usage:
-    from planner_consent_gate.py import evaluate_consent
-    decision = evaluate_consent(session_id, plan)
-    if decision.get("requires_consent"):
-        # return to UI; UI will call /consent/request then /consent/decision
-    else:
-        # proceed with executor
-"""
-from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any
 
-HIGH_RISK_ACTIONS = {"mail.send", "system.exec.limited", "files.delete", "payment.charge"}
+
+RATIONALE_MAX = 240 # ~2 lines in UI
+
 
 @dataclass
 class Plan:
     intent: str
-    tool: str
+    tool: str # 'tool.op' 형식 (예: "mail.send")
     args: Dict[str, Any]
-    risk: str  # low|medium|high
+    risk: str = "low"
+
+
+# 'aurora-win/data/policy.json'의 'high_risk'와 일치해야 함
+HIGH_RISK = {"mail.send", "system.exec.limited", "files.delete", "payment.charge", "os.settings", "update.apply", "system.exec"}
+
+
+def _summarize(text: str) -> str:
+    t = (text or "").strip().replace("\n", " ")
+    return (t[:RATIONALE_MAX] + "…") if len(t) > RATIONALE_MAX else t
 
 
 def evaluate_consent(session_id: str, plan: Plan) -> Dict[str, Any]:
-    risk = plan.risk.lower()
-    # heuristics: explicit high risk OR in known high-risk actions
-    is_high = risk == "high" or plan.tool in HIGH_RISK_ACTIONS
+    """
+    'plan.tool'은 'mail.send'와 같은 'tool.op' 형식이어야 합니다.
+    """
+    tool_key = plan.tool.strip()
+    is_high = plan.risk == "high" or tool_key in HIGH_RISK
+    
     if not is_high:
-        return {"proceed": True}
+        # 동의가 필요 없으면 빈 객체 반환 (app/main.py의 로직과 일치)
+        return {}
 
-    purpose = plan.args.get("purpose") or f"Execute {plan.tool} for {plan.intent}"
-    scope = plan.args.get("scope") or plan.tool.split(".")[0]
-    ttl = int(plan.args.get("ttl_hours", 24))
-
-    payload = {
-        "session_id": session_id,
-        "action": plan.tool,
-        "purpose": purpose,
-        "scope": scope,
-        "risk": "high",
-        "ttl_hours": ttl,
+    # 동의가 필요함: UI에 전달할 페이로드 생성
+    rationale = {
+        "why": _summarize(plan.intent or plan.args.get("purpose", "")),
+        "how": _summarize(f"tool={plan.tool} args={list(plan.args.keys())}")
     }
-    return {"requires_consent": payload}
 
-# Example
-if __name__ == "__main__":
-    p = Plan(intent="send_summary", tool="mail.send", args={"to":"a@b.com"}, risk="high")
-    print(evaluate_consent("sess-123", p))
+    return {
+        "requires_consent": {
+            "session_id": session_id,
+            "action": plan.tool, # 'mail.send'
+            "purpose": plan.args.get("purpose", plan.intent),
+            "scope": plan.tool.split(".")[0], # 'mail'
+            "risk": "high", # 'high'로 강제
+            "ttl_hours": plan.args.get("ttl_hours", 24),
+            "rationale": rationale
+        }
+    }

@@ -5,7 +5,10 @@ Aurora Dashboard API Stub
 - Mount into FastAPI as a router: app.include_router(dash_router, prefix="/dash")
 """
 from __future__ import annotations
-import sqlite3, json, time, statistics
+import sqlite3
+import json
+import time
+import statistics
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
@@ -13,7 +16,7 @@ from typing import Dict, Any, List, Tuple
 from fastapi import APIRouter, Query, Body
 from pydantic import BaseModel
 
-DB_PATH = Path("data/metrics.db")
+DB_PATH = Path(os.getenv("METRICS_DB_PATH", "data/metrics.db"))
 
 dash_router = APIRouter()
 
@@ -22,15 +25,24 @@ dash_router = APIRouter()
 def _connect():
     if not DB_PATH.exists():
         return None
-    conn = sqlite3.connect(DB_PATH.as_posix())
-    conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        conn = sqlite3.connect(DB_PATH.as_posix())
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] Failed to connect to DB: {e}")
+        return None
 
 
 def _window_to_ts(window: str) -> float:
     # window in forms like '1h', '24h', '7d'
     unit = window[-1].lower()
-    val = int(window[:-1])
+    val = 1
+    try:
+        val = int(window[:-1])
+    except ValueError:
+        pass # 기본값 1 사용
+        
     now = datetime.utcnow()
     if unit == 'm':
         delta = timedelta(minutes=val)
@@ -39,7 +51,7 @@ def _window_to_ts(window: str) -> float:
     elif unit == 'd':
         delta = timedelta(days=val)
     else:
-        delta = timedelta(hours=1)
+        delta = timedelta(hours=1) # 기본값 1시간
     return (now - delta).timestamp()
 
 
@@ -52,7 +64,7 @@ class ConsentTimelineItem(BaseModel):
     decision: str
 
 class ErrorRow(BaseModel):
-    tool: str
+    tool: str | None
     err_code: str | None
     count: int
 
@@ -62,12 +74,20 @@ def get_kpi(window: str = Query("1h")):
     since = _window_to_ts(window)
     conn = _connect()
     if not conn:
-        # placeholders if DB not ready
+        # DB가 준비되지 않았을 때 플레이스홀더 반환
         return {"kpi": {"success": 0.0, "blocked": 0.0, "p95_ms": 0}}
-    cur = conn.cursor()
-    cur.execute("SELECT outcome, latency_ms FROM events_raw WHERE ts >= ?", (since,))
-    rows = cur.fetchall()
-    lat = [r["latency_ms"] for r in rows if r["latency_ms"] is not None]
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT outcome, latency_ms FROM events_raw WHERE ts >= ?", (since,))
+        rows = cur.fetchall()
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /kpi: {e}")
+        rows = [] # 오류 시 빈 목록
+    finally:
+        if conn:
+            conn.close()
+
+    lat = [r["latency_ms"] for r in rows if r["latency_ms"] is not None and r["latency_ms"] >= 0]
     outcomes = [r["outcome"] for r in rows]
     total = max(len(outcomes), 1)
     success = sum(1 for o in outcomes if o == "success") / total
@@ -82,18 +102,30 @@ def get_latency(p: int = Query(95, ge=50, le=99), window: str = Query("1h"), too
     conn = _connect()
     if not conn:
         return {"series": []}
-    cur = conn.cursor()
-    if tool:
-        cur.execute("SELECT tool, latency_ms FROM events_raw WHERE ts >= ? AND tool=?", (since, tool))
-    else:
-        cur.execute("SELECT tool, latency_ms FROM events_raw WHERE ts >= ?", (since,))
-    rows = cur.fetchall()
+        
+    try:
+        cur = conn.cursor()
+        if tool:
+            cur.execute("SELECT tool, latency_ms FROM events_raw WHERE ts >= ? AND tool=?", (since, tool))
+        else:
+            cur.execute("SELECT tool, latency_ms FROM events_raw WHERE ts >= ?", (since,))
+        rows = cur.fetchall()
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /latency: {e}")
+        rows = []
+    finally:
+        if conn:
+            conn.close()
+            
     buckets: Dict[str, List[int]] = {}
     for r in rows:
-        if r["latency_ms"] is None: continue
+        if r["latency_ms"] is None or r["latency_ms"] < 0: continue
         buckets.setdefault(r["tool"] or "unknown", []).append(int(r["latency_ms"]))
+        
     data = []
     for k, v in buckets.items():
+        if not v:
+            continue
         v.sort()
         idx = int((p/100.0) * len(v)) - 1
         idx = max(0, min(idx, len(v)-1))
@@ -107,9 +139,18 @@ def consent_timeline(window: str = Query("7d")):
     conn = _connect()
     if not conn:
         return {"items": []}
-    cur = conn.cursor()
-    cur.execute("SELECT ts, decision FROM consent WHERE ts >= ? ORDER BY ts ASC", (since,))
-    items = [{"ts": datetime.utcfromtimestamp(r["ts"]).isoformat()+"Z", "decision": r["decision"]} for r in cur.fetchall()]
+        
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT ts, decision FROM consent WHERE ts >= ? ORDER BY ts ASC", (since,))
+        items = [{"ts": datetime.utcfromtimestamp(r["ts"]).isoformat()+"Z", "decision": r["decision"]} for r in cur.fetchall()]
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /consent/timeline: {e}")
+        items = []
+    finally:
+        if conn:
+            conn.close()
+            
     return {"items": items}
 
 
@@ -119,18 +160,27 @@ def errors_top(window: str = Query("1h"), limit: int = Query(10, ge=1, le=100)):
     conn = _connect()
     if not conn:
         return {"rows": []}
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT tool, err_code, COUNT(*) as cnt
-        FROM events_raw
-        WHERE ts >= ? AND outcome='error'
-        GROUP BY tool, err_code
-        ORDER BY cnt DESC
-        LIMIT ?
-        """, (since, limit)
-    )
-    rows = [{"tool": r["tool"], "err_code": r["err_code"], "count": r["cnt"]} for r in cur.fetchall()]
+        
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT tool, err_code, COUNT(*) as cnt
+            FROM events_raw
+            WHERE ts >= ? AND outcome='error'
+            GROUP BY tool, err_code
+            ORDER BY cnt DESC
+            LIMIT ?
+            """, (since, limit)
+        )
+        rows = [{"tool": r["tool"], "err_code": r["err_code"], "count": r["cnt"]} for r in cur.fetchall()]
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /errors/top: {e}")
+        rows = []
+    finally:
+        if conn:
+            conn.close()
+            
     return {"rows": rows}
 
 
@@ -140,20 +190,29 @@ def high_risk(window: str = Query("24h")):
     conn = _connect()
     if not conn:
         return {"rows": []}
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT ts, intent as action, decision, session_id FROM consent WHERE ts>=? AND risk='high' ORDER BY ts DESC",
-        (since,)
-    )
-    rows = [
-        {
-            "ts": datetime.utcfromtimestamp(r["ts"]).isoformat()+"Z",
-            "action": r["action"],
-            "decision": r["decision"],
-            "session_id": r["session_id"],
-        }
-        for r in cur.fetchall()
-    ]
+        
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT ts, action, decision, session_id FROM consent WHERE ts>=? AND risk='high' ORDER BY ts DESC",
+            (since,)
+        )
+        rows = [
+            {
+                "ts": datetime.utcfromtimestamp(r["ts"]).isoformat()+"Z",
+                "action": r["action"],
+                "decision": r["decision"],
+                "session_id": r["session_id"],
+            }
+            for r in cur.fetchall()
+        ]
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /highrisk: {e}")
+        rows = []
+    finally:
+        if conn:
+            conn.close()
+            
     return {"rows": rows}
 
 
@@ -163,9 +222,18 @@ def bandit_reward(window: str = Query("7d")):
     conn = _connect()
     if not conn:
         return {"points": []}
-    cur = conn.cursor()
-    cur.execute("SELECT ts, avg_reward FROM bandit WHERE ts>=? ORDER BY ts ASC", (since,))
-    pts = [{"ts": datetime.utcfromtimestamp(r["ts"]).isoformat()+"Z", "avg_reward": r["avg_reward"]} for r in cur.fetchall()]
+        
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT ts, avg_reward FROM bandit WHERE ts>=? ORDER BY ts ASC", (since,))
+        pts = [{"ts": datetime.utcfromtimestamp(r["ts"]).isoformat()+"Z", "avg_reward": r["avg_reward"]} for r in cur.fetchall()]
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /bandit/reward: {e}")
+        pts = []
+    finally:
+        if conn:
+            conn.close()
+            
     return {"points": pts}
 
 
@@ -175,9 +243,18 @@ def bandit_weights(window: str = Query("7d")):
     conn = _connect()
     if not conn:
         return {"rows": []}
-    cur = conn.cursor()
-    cur.execute("SELECT tool, weight, MAX(ts) as ts FROM bandit_weights WHERE ts>=? GROUP BY tool", (since,))
-    rows = [{"tool": r["tool"], "weight": r["weight"]} for r in cur.fetchall()]
+        
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT tool, weight, MAX(ts) as ts FROM bandit_weights WHERE ts>=? GROUP BY tool", (since,))
+        rows = [{"tool": r["tool"], "weight": r["weight"]} for r in cur.fetchall()]
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /bandit/weights: {e}")
+        rows = []
+    finally:
+        if conn:
+            conn.close()
+            
     return {"rows": rows}
 
 
@@ -187,11 +264,20 @@ def rag_quality(window: str = Query("24h")):
     conn = _connect()
     if not conn:
         return {"evidence_rate": 0.0}
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM events_raw WHERE ts>=? AND type='rag'", (since,))
-    total = cur.fetchone()[0] or 0
-    cur.execute("SELECT COUNT(*) FROM events_raw WHERE ts>=? AND type='rag' AND outcome='success' AND evidences>=1", (since,))
-    with_ev = cur.fetchone()[0] or 0
+        
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM events_raw WHERE ts>=? AND type='rag'", (since,))
+        total = cur.fetchone()[0] or 0
+        cur.execute("SELECT COUNT(*) FROM events_raw WHERE ts>=? AND type='rag' AND outcome='success' AND evidences>=1", (since,))
+        with_ev = cur.fetchone()[0] or 0
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /rag/quality: {e}")
+        total, with_ev = 0, 0
+    finally:
+        if conn:
+            conn.close()
+            
     rate = (with_ev/total) if total else 0.0
     return {"evidence_rate": round(rate, 4)}
 
@@ -202,19 +288,28 @@ def rag_top_chunks(window: str = Query("24h"), limit: int = Query(20, ge=1, le=1
     conn = _connect()
     if not conn:
         return {"rows": []}
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT doc, chunk_idx, COUNT(*) AS hits
-        FROM rag_hits
-        WHERE ts>=?
-        GROUP BY doc, chunk_idx
-        ORDER BY hits DESC
-        LIMIT ?
-        """,
-        (since, limit),
-    )
-    rows = [{"doc": r["doc"], "chunk": r["chunk_idx"], "hits": r["hits"]} for r in cur.fetchall()]
+        
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT doc, chunk_idx, COUNT(*) AS hits
+            FROM rag_hits
+            WHERE ts>=?
+            GROUP BY doc, chunk_idx
+            ORDER BY hits DESC
+            LIMIT ?
+            """,
+            (since, limit),
+        )
+        rows = [{"doc": r["doc"], "chunk": r["chunk_idx"], "hits": r["hits"]} for r in cur.fetchall()]
+    except sqlite3.Error as e:
+        print(f"[Dashboard API ERROR] /rag/top-chunks: {e}")
+        rows = []
+    finally:
+        if conn:
+            conn.close()
+            
     return {"rows": rows}
 
 
@@ -223,7 +318,18 @@ class AuditVerifyReq(BaseModel):
 
 @dash_router.post("/audit/verify")
 def audit_verify(req: AuditVerifyReq):
+    # audit_verify.py 스크립트를 직접 호출합니다.
     from subprocess import run, PIPE
-    # Calls the bundled CLI (audit_verify.py) and returns result code + output
-    p = run(["python", "audit_verify.py", req.path], stdout=PIPE, stderr=PIPE, text=True)
+    
+    # app/main.py가 있는 루트에서 scripts/audit_verify.py를 찾도록 경로 수정
+    script_path = "scripts/audit_verify.py"
+    if not Path(script_path).exists():
+        script_path = Path(__file__).parent.parent / "scripts" / "audit_verify.py"
+        if not script_path.exists():
+            return {"returncode": -1, "stdout": "", "stderr": "audit_verify.py not found"}
+            
+    # 'python' 대신 sys.executable을 사용하여 현재 venv의 Python을 사용
+    import sys
+    
+    p = run([sys.executable, str(script_path), req.path], stdout=PIPE, stderr=PIPE, text=True, encoding='utf-8')
     return {"returncode": p.returncode, "stdout": p.stdout, "stderr": p.stderr}
