@@ -1,19 +1,17 @@
 """
 Aurora Raw→Rollup Precise P95 Recomputer
-- Recomputes P95 latency per bucket directly from raw events (no approximation)
+- (EventCollector [cite: vivleon/aurora/AURORA-main/aurora-win/app/event_collector.py]의 롤업은 근사치일 수 있으므로, 이 스크립트로 정확한 P95를 재계산)
 - Updates rollup_1m / rollup_5m / rollup_1h with exact P95
 - Safe to run periodically (idempotent upserts)
 
 Usage examples:
-  python raw_to_rollup_p95.py --db data/metrics.db --window 3600   # last 1h
-  python raw_to_rollup_p95.py --db data/metrics.db --window 86400  # last 24h
-  python raw_to_rollup_p95.py --db data/metrics.db --full          # all time (costly)
+  python raw_to_rollup_p_95.py --db data/metrics.db --window 3600   # last 1h
 """
 from __future__ import annotations
 import argparse, sqlite3, math
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
 TABLE_FOR = {60: "rollup_1m", 300: "rollup_5m", 3600: "rollup_1h"}
 WINDOWS = [60, 300, 3600]
@@ -39,7 +37,7 @@ def recompute(db: Path, horizon_sec: int | None):
     rows = cur.fetchall()
 
     for w in WINDOWS:
-        buckets: Dict[int, Dict[str, List[int] | int]] = {}
+        buckets: Dict[int, Dict[str, Any]] = {}
         for r in rows:
             b = int(r["ts"] // w) * w
             rec = buckets.setdefault(b, {"lat": [], "s": 0, "b": 0, "e": 0})
@@ -50,10 +48,18 @@ def recompute(db: Path, horizon_sec: int | None):
             elif o == "error": rec["e"] += 1
 
         table = TABLE_FOR[w]
+        
+        upsert_data = []
         for b, v in buckets.items():
             v["lat"].sort()
             p95 = percentile(v["lat"], 0.95)
-            cur.execute(
+            upsert_data.append((b, v["s"], v["b"], v["e"], p95))
+
+        if not upsert_data:
+            continue
+            
+        try:
+            cur.executemany(
                 f"""
                 INSERT INTO {table}(bucket, success_cnt, blocked_cnt, error_cnt, p95_latency)
                 VALUES (?, ?, ?, ?, ?)
@@ -63,8 +69,12 @@ def recompute(db: Path, horizon_sec: int | None):
                   error_cnt=excluded.error_cnt,
                   p95_latency=excluded.p95_latency
                 """,
-                (b, v["s"], v["b"], v["e"], p95)
+                upsert_data
             )
+            print(f"[P95] Recomputed {len(upsert_data)} buckets for {table}")
+        except sqlite3.Error as e:
+            print(f"[PCode (Web): 95 ERROR] Failed to update {table}: {e}")
+            
     conn.commit()
     conn.close()
 

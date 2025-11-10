@@ -41,6 +41,20 @@ CREATE TABLE IF NOT EXISTS consent (
 );
 CREATE INDEX IF NOT EXISTS idx_consent_ts ON consent(ts);
 
+-- ============= [NEW] Notes Table =============
+-- (app/tools/notes.py와 app/tools/calendar.py가 사용)
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  body TEXT,
+  pin INTEGER DEFAULT 0,
+  ttl_at REAL,
+  created_at REAL NOT NULL,
+  updated_at REAL
+);
+CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created_at);
+CREATE INDEX IF NOT EXISTS idx_notes_pin ON notes(pin);
+
 -- ============= error summary =============
 CREATE TABLE IF NOT EXISTS errors (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
