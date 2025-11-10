@@ -11,7 +11,9 @@
 <Principals><Principal id="Author" RunLevel="LeastPrivilege"/></Principals>
 <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy></Settings>
 <Actions>
+<!-- [FIX] 'scripts/' 경로 추가 -->
 <Exec><Command>python</Command><Arguments>scripts/audit_verify.py data/audit.log</Arguments></Exec>
-<Exec><Command>python</Command><Arguments>audit_compact_weekly.py --in data/audit.log --out data/archive</Arguments></Exec>
+<!-- [FIX] 'scripts/' 경로 추가 -->
+<Exec><Command>python</Command><Arguments>scripts/audit_compact_weekly.py --in data/audit.log --out data/archive</Arguments></Exec>
 </Actions>
 </Task>
