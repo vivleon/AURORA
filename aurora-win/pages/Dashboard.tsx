@@ -22,6 +22,12 @@ type SystemInfo = {
     temperature_c: number;
     humidity_percent: number;
   };
+  // [FIX] 'system_load' 타입을 추가합니다.
+  system_load: {
+    cpu_usage_percent: number;
+    ram_free_gb: number;
+    network_status: string;
+  };
   status?: string; // API 오류 처리용
 };
 
@@ -47,8 +53,8 @@ const useSystemInfo = () => {
                 // executor.run()의 결과 구조: j.result[0].out 에 담겨있음
                 const result = j.result[0]?.out;
                 
-                if (result && result.status === 'ok') {
-                    setInfo(result); 
+                if (result && result.status === 'ok' && result.system_load) {
+                    setInfo(result as SystemInfo); 
                 } else {
                     throw new Error("Tool failed");
                 }
@@ -58,7 +64,9 @@ const useSystemInfo = () => {
                     timestamp_utc: new Date().toISOString(),
                     location: "Error",
                     weather: { description: "Offline", temperature_c: 0, humidity_percent: 0 },
-                    status: "Error Loading Data"
+                    status: "Error Loading Data",
+                    // [FIX] system_load 기본값 추가
+                    system_load: { cpu_usage_percent: 0, ram_free_gb: 0, network_status: "N/A" } 
                 } as SystemInfo);
             }
         };
@@ -82,7 +90,6 @@ const useFetch = <T,>(path: string, initial: T, deps: any[] = []) => {
     let cancelled = false;
     (async () => {
       try {
-        // [수정] 프록시가 작동하므로 상대 경로만 사용합니다.
         const r = await fetch(path); 
         if (!r.ok) throw new Error(`[${r.status}] ${await r.text()}`);
         const j = await r.json();
@@ -144,7 +151,7 @@ const CommandInput: React.FC = () => {
             
             if (execData.requires_consent) {
                 // 고위험 작업 (자비스가 동의를 요청하는 부분)
-                setOutput(`[CONSENT REQUIRED] Action: ${execData.requires_consent.action}\nPurpose: ${execData.requires_consent.purpose}\n\n-> Please use the dedicated Consent API to approve: ${execData.requires_consent.token}`);
+                setOutput(`[CONSENT REQUIRED] Action: ${execData.requires_consent.action}\nPurpose: ${execData.requires_consent.purpose}\n\n-> Approve Token: ${execData.requires_consent.token}`);
                 // TODO: ConsentModal을 띄우는 로직 필요
             } else if (execResp.ok) {
                 // 성공적으로 실행 완료
@@ -166,7 +173,7 @@ const CommandInput: React.FC = () => {
                     type="text" 
                     value={command} 
                     onChange={(e) => setCommand(e.target.value)}
-                    onKeyPress={(e) => { if (e.key === 'Enter') sendCommand(); }} // Enter 키로 전송
+                    onKeyPress={(e) => { if (e.key === 'Enter') sendCommand(); }} 
                     placeholder="여기에 명령어를 입력하세요. (예: 내일 일정 알려줘)"
                     className="flex-1 p-2 bg-hud-bg/70 border border-hud-cyan-dark text-hud-text focus:outline-none"
                 />
@@ -227,7 +234,6 @@ export default function DashboardPage() {
       {/* 3. 메인 그리드 */}
       <div className="flex-1 grid grid-cols-4 grid-rows-3 gap-4">
         
-        {/* 중앙 통계 (Overview) */}
         {tab === "overview" && (
           <>
             <HudPanel title="Key Performance Indicators" className="col-span-3 row-span-1 grid grid-cols-3 gap-4">
@@ -240,21 +246,19 @@ export default function DashboardPage() {
               <RagPanel />
             </HudPanel>
             
-            {/* [수정] Command Input을 Tools 패널 자리에 배치 */}
             <CommandInput /> 
 
             <HudPanel title="System Load" className="col-span-3 row-span-2">
-                {/* [MOCK DATA] 시스템 로드 그래프를 위한 임시 데이터 */}
                 <div className="grid grid-cols-3 gap-4 h-full">
-                    <HudStat title="CPU USAGE" value="3.4" unit="%" />
-                    <HudStat title="RAM FREE" value="12.8" unit="GB" />
-                    <HudStat title="NETWORK" value="Wi-Fi" unit="(99%)" />
+                    {/* [FIX] systemInfo가 null일 때를 대비 (Optional Chaining) */}
+                    <HudStat title="CPU USAGE" value={systemInfo?.system_load?.cpu_usage_percent?.toFixed(1) || 'N/A'} unit="%" />
+                    <HudStat title="RAM FREE" value={systemInfo?.system_load?.ram_free_gb?.toFixed(1) || 'N/A'} unit="GB" />
+                    <HudStat title="NETWORK" value={systemInfo?.system_load?.network_status || 'N/A'} unit="" />
                 </div>
             </HudPanel>
           </>
         )}
 
-        {/* Performance 탭 */}
         {tab === "performance" && (
           <HudPanel title="P95 Latency (ms)" className="col-span-4 row-span-3">
             <ResponsiveContainer width="100%" height={400}>
@@ -268,7 +272,6 @@ export default function DashboardPage() {
           </HudPanel>
         )}
 
-        {/* Consent 탭 */}
         {tab === "security_consent" && (
           <HudPanel title="High-Risk Executions (24h)" className="col-span-4 row-span-3">
              <table className="w-full text-left text-sm">
@@ -286,7 +289,6 @@ export default function DashboardPage() {
           </HudPanel>
         )}
 
-        {/* Bandit 탭 */}
         {tab === "bandit" && (
           <HudPanel title="Tool Weights (Learned)" className="col-span-4 row-span-3">
             <ResponsiveContainer width="100%" height={400}>
@@ -307,14 +309,20 @@ export default function DashboardPage() {
 }
 
 // [신규] shadcn/ui 폴더가 아닌 곳에 있는 컴포넌트를 위한 임시 버튼 (스타일 적용)
-const Button: React.FC<{ variant: string; onClick: () => void; children: React.ReactNode }> = ({ variant, onClick, children }) => (
+// [FIXED] className prop 추가 및 Promise<void> 타입 지원
+const Button: React.FC<{ 
+    variant: string; 
+    onClick: () => void | Promise<void>; 
+    children: React.ReactNode; 
+    className?: string; 
+}> = ({ variant, onClick, children, className = "" }) => (
   <button 
-    onClick={onClick} 
+    onClick={onClick as (e: React.MouseEvent) => void} 
     className={`px-4 py-1.5 rounded-md text-sm font-medium ${
       variant === 'default' 
       ? 'bg-hud-cyan text-hud-bg' 
       : 'border border-hud-cyan-dark text-hud-text-muted hover:bg-hud-cyan-dark/30'
-    }`}
+    } ${className}`}
   >
     {children}
   </button>

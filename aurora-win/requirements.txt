@@ -21,3 +21,5 @@ python-dotenv
 rich
 jinja2
 ics
+
+psutil
