@@ -80,7 +80,10 @@ async def plan_endpoint(req: dict):
     """
     intent = req.get("input", "")
     ctx = req.get("context", {})
-    plan_obj = planner.make_plan(intent, ctx)
+    
+    # [수정] 'planner.make_plan'은 async 함수이므로 'await'가 필요합니다.
+    plan_obj = await planner.make_plan(intent, ctx)
+    
     return {"plan": plan_obj}
 
 @app.post("/aurora/execute")
@@ -156,7 +159,7 @@ async def run_smart_inbox_endpoint(
     
     return {"status": "ok", "processed": results}
 
-    
+
 # --- [신규] Routine Builder API (Week 2 목표) ---
 @app.post("/routine/run")
 async def run_routine_endpoint(
