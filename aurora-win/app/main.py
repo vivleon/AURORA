@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI, HTTPException, Request, Body
+from fastapi.middleware.cors import CORSMiddleware
 
 # --- 고급 서비스 임포트 (aurora-win/aurora-win/app/main.py 기반) ---
 from app.aurora_dashboard_api_stub import dash_router
@@ -32,6 +33,21 @@ BANDIT_STATE_PATH = os.getenv("BANDIT_STATE_PATH", "data/bandit_state.json")
 
 # --- FastAPI 앱 초기화 ---
 app = FastAPI(title="AURORA (Complete)", version="1.0")
+
+
+# --- [신규] CORS 미들웨어 추가 (UI 접속 허용) ---
+# UI가 실행되는 http://localhost:3000을 허용합니다.
+origins = [
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- 핵심 인지 모듈 로드 ---
 try:
