@@ -16,7 +16,9 @@
     "plugins": [{"name": "next"}],
     "baseUrl": ".",
     "paths": {
+      // --- [수정] 아래 1줄을 추가합니다 ---
       "@/components/*": ["webui/components/*"],
+
       "@/hooks/*": ["webui/hooks/*"],
       "@/lib/*": ["webui/lib/*"],
       "@/pages/*": ["webui/pages/*"],
