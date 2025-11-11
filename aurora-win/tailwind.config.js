@@ -2,11 +2,7 @@
 module.exports = {
   darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
-    './webui/**/*.{ts,tsx}' // webui 폴더 인식
+    "./webui/**/*.{ts,tsx}" // [수정] UI 파일이 있는 webui 폴더를 기준으로 설정
   ],
   prefix: "",
   theme: {
