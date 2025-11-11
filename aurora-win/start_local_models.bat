@@ -3,6 +3,13 @@ setlocal
 set MODELS_DIR=models\llm
 set BIN=models\bin\llama-server.exe
 
-REM main model
-"%BIN%" -m "%MODELS_DIR%\main.gguf" --port 8081 --ctx-size 4096 --embedding 0 --threads 8 --batch 256 --parallel 2 --alias main
+echo Starting Main model server (Port 8081)...
+REM --- Removed Korean comments to fix encoding errors ---
+start "Main Model (8081)" cmd /K "%BIN% -m ""%MODELS_DIR%\main.gguf"" --port 8081 --ctx-size 4096 --threads 8 --batch 256 --parallel 2 --alias main"
+
+echo Starting Intent model server (Port 8082)...
+REM --- Added Intent server (Port 8082) ---
+start "Intent Model (8082)" cmd /K "%BIN% -m ""%MODELS_DIR%\intent.gguf"" --port 8082 --ctx-size 2048 --threads 8 --batch 256 --parallel 2 --alias intent"
+
+echo Both AI servers are starting in separate windows.
 endlocal
