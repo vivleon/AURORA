@@ -1,5 +1,6 @@
 # app/tools/nlp.py
-# [수정] model_runner를 임포트하여 실제 LLM 추론을 호출합니다.
+import asyncio
+from typing import Dict, Any
 
 try:
     from app.router import model_runner
@@ -8,21 +9,17 @@ except ImportError:
     model_runner = None
 
 async def summarize(args, policy, db):
-    """
-    텍스트를 요약합니다. (model_runner.py 호출)
-    """
     text = args.get("text", "")
     style = args.get("style", "bullet-3")
     
     if not text:
-        return {"summary": ""}
+        return {"summary": f"[INFO] No text provided for summary. Returning no-op.", "model": None}
 
     print(f"[Tool] Summarizing text (style: {style})...")
     
     if not model_runner:
         return {"summary": f"[Stub] Summary of '{text[:20]}...'", "error": "model_runner not imported"}
 
-    # model_runner를 통해 하이브리드 라우팅 (로컬/클라우드)
     prompt = f"다음 텍스트를 {style} 스타일로 요약해줘:\n\n{text}"
     
     result = await model_runner.run_inference(
@@ -32,15 +29,14 @@ async def summarize(args, policy, db):
         max_tokens=256
     )
     
-    if result.get("error"):
-        return {"summary": None, "error": result["error"]}
-        
-    return {"summary": result.get("text"), "model": result.get("model")}
+    summary_text = result.get("text")
+    if result.get("error") or not summary_text or summary_text.strip() == "":
+        # [FIX] 빈 응답일 때 오류 반환
+        return {"summary": "[ERROR] LLM returned empty response or inference failed.", "error": result.get("error") or "Empty LLM Output"}
+
+    return {"summary": summary_text, "model": result.get("model")}
 
 async def classify(args, policy, db):
-    """
-    텍스트를 분류합니다. (예: Smart Inbox)
-    """
     text = args.get("text", "")
     categories = args.get("categories", ["중요", "스팸", "일반"])
     
@@ -61,10 +57,9 @@ async def classify(args, policy, db):
         max_tokens=10
     )
     
-# [수정] result.get("text")가 None일 경우를 대비
     category_text = result.get("text")
-    category = "general" # 기본값
-    if category_text: # None이 아닐 때만 strip() 호출
+    category = "general"
+    if category_text:
         category = category_text.strip()
         
     return {"category": category, "model": result.get("model")}

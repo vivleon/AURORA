@@ -84,44 +84,71 @@ async def send(args: Dict[str, Any], policy, db):
         print(f"[Tool.Mail ERROR] File write failed: {e}")
         return {"sent": False, "error": str(e)}
 
+# [신규] Helper function to parse subject from .eml files (간단한 파싱)
+def _parse_subject_from_eml(filepath: Path) -> str:
+    try:
+        # Simplistic parsing: just read the first few lines to find 'Subject:'
+        content = filepath.read_text('utf-8', errors='ignore')
+        for line in content.splitlines():
+            if line.lower().startswith("subject:"):
+                return line[8:].strip()
+        return "[No Subject]"
+    except Exception:
+        return "[Parsing Error]"
+
+
 async def list(args, policy, db):
     """
-    (Smart Inbox용 스텁)
-    INBOX에서 '읽지 않은' 메일 목록을 가져옵니다.
-    (실제 구현: INBOX_PATH에서 .eml 파일 파싱)
+    [업그레이드]
+    INBOX_PATH에서 실제 .eml 파일 목록을 가져옵니다. (하드코딩 제거)
     """
-    print(f"[Tool.Mail] Listing unread emails from {INBOX_PATH} (stub)")
-    # 실제 구현: os.listdir(INBOX_PATH) 후 .eml 헤더 파싱
-    # (스텁 유지)
-    return {
-        "emails": [
-            {"id": "msg-123", "subject": "긴급: 4분기 실적 보고서", "from": "finance@example.com"},
-            {"id": "msg-124", "subject": "뉴스레터: AI 최신 동향", "from": "newsletter@tech.com"},
-            {"id": "msg-125", "subject": "회의 초대: 주간 싱크업", "from": "teammate@example.com"},
-        ]
-    }
+    if not INBOX_PATH.exists():
+        INBOX_PATH.mkdir(parents=True, exist_ok=True)
+
+    emails = []
+    # [HARDCODING REMOVAL] 실제 파일 시스템에서 .eml 파일을 읽습니다.
+    for i, filepath in enumerate(INBOX_PATH.glob("*.eml")):
+        if i >= args.get("limit", 10): # 기본 10개로 제한
+            break
+        
+        # 파일 이름을 ID로 사용
+        msg_id = filepath.stem
+        subject = _parse_subject_from_eml(filepath)
+        
+        emails.append({
+            "id": msg_id, 
+            "subject": subject, 
+            "from": "inbox_user@local.host", # 발신자 정보 파싱은 스텁 유지
+            "filepath": str(filepath)
+        })
+
+    print(f"[Tool.Mail] Listing {len(emails)} emails from {INBOX_PATH}")
+    return {"emails": emails}
 
 async def get(args, policy, db):
     """
-    (Smart Inbox용 스텁)
-    특정 이메일 ID의 본문을 가져옵니다.
-    (실제 구현: INBOX_PATH에서 {id}.eml 파일 파싱)
+    [업그레이드]
+    특정 이메일 ID의 본문을 실제 파일에서 가져옵니다. (하드코딩 제거)
     """
     msg_id = args.get("id")
     if not msg_id:
         raise ValueError("Email 'id' is required")
     
-    print(f"[Tool.Mail] Getting email content for: {msg_id} (stub)")
-    # 실제 구현: (INBOX_PATH / f"{msg_id}.eml").read_text()
+    # [HARDCODING REMOVAL] 파일 시스템에서 직접 파일을 읽습니다.
+    filepath = INBOX_PATH / f"{msg_id}.eml"
+    if not filepath.exists():
+        # 파일명을 못 찾을 경우, 확장자를 찾아서 대소문자 문제 해결 시도
+        found_files = list(INBOX_PATH.glob(f"{msg_id}.*"))
+        if found_files:
+            filepath = found_files[0]
+        else:
+            raise FileNotFoundError(f"Email file not found for ID: {msg_id}")
     
-    # (스텁 유지)
-    stub_bodies = {
-        "msg-123": "CEO님, 4분기 실적 보고서 초안입니다. 검토 부탁드립니다...",
-        "msg-124": "지난 주 AI 업계의 가장 큰 뉴스는...",
-        "msg-125": "주간 싱크업 일정을 다음 주 월요일로 변경합니다...",
-    }
+    print(f"[Tool.Mail] Getting email content for: {filepath}")
     
-    return {
-        "id": msg_id,
-        "body": stub_bodies.get(msg_id, "메일 본문을 찾을 수 없습니다.")
-    }
+    try:
+        # 이메일 본문 전체를 읽습니다. 
+        body = filepath.read_text('utf-8', errors='ignore')
+        return {"id": msg_id, "body": body}
+    except Exception as e:
+        return {"id": msg_id, "body": f"[Error Reading File: {e}]"}
