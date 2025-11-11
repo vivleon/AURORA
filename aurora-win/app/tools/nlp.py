@@ -61,5 +61,10 @@ async def classify(args, policy, db):
         max_tokens=10
     )
     
-    category = result.get("text", "general").strip()
+# [수정] result.get("text")가 None일 경우를 대비
+    category_text = result.get("text")
+    category = "general" # 기본값
+    if category_text: # None이 아닐 때만 strip() 호출
+        category = category_text.strip()
+        
     return {"category": category, "model": result.get("model")}
