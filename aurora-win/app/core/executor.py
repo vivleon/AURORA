@@ -2,8 +2,7 @@ import time
 import asyncio 
 from typing import Dict, Any
 # [신규] rag 도구 임포트
-from app.tools import calendar, mail, browser, files, notes, screen, system, nlp, rag
-
+from app.tools import calendar, mail, browser, files, notes, screen, system, nlp, rag, system_info
 TOOL_MAP = {
     "calendar": calendar,
     "mail": mail,
@@ -13,7 +12,8 @@ TOOL_MAP = {
     "screen": screen,
     "system": system,
     "nlp": nlp,
-    "rag": rag, # [신규] RAG 도구 등록
+    "rag": rag, 
+    "system_info": system_info, # [신규] system_info 도구 등록
 }
 
 async def run(
