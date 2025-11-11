@@ -2,14 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // [필수 추가]
-  // UI 서버(3000)가 알지 못하는 모든 경로(예: /dash/*, /aurora/*, /events/*)의
-  // 요청을 백엔드 서버(8000)로 전달(proxy)하도록 설정합니다.
+  // [필수 수정]
+  // Pages Router(현재 구조)는 'rewrites' 대신 'proxy' 설정을 사용해야
+  // API 요청(예: /dash/*)을 백엔드(8000)로 올바르게 전달합니다.
   async rewrites() {
     return [
       {
-        source: "/:path*",
-        destination: "http://127.0.0.1:8000/:path*",
+        // /dash/, /aurora/, /events/, /docs/ 로 시작하는 모든 API 요청을
+        source: '/:path((?!_next|favicon.ico).*)', 
+        // 실제 백엔드 서버인 8000번 포트로 보냅니다.
+        destination: 'http://127.0.0.1:8000/:path*',
       },
     ];
   }
