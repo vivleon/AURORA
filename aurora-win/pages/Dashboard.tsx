@@ -57,7 +57,7 @@ const HudStat: React.FC<{ title: string; value: string; unit?: string }> = ({ ti
 
 // --- 메인 대시보드 (자비스 스타일) ---
 export default function DashboardPage() {
-  const [tab, setTab] = useState<"overview" | "performance" | "consent" | "bandit">("overview");
+  const [tab, setTab] = useState<"overview" | "performance" | "security_consent" | "bandit">("overview");
 
   // 데이터 Fetching (기존과 동일)
   const kpi = useFetch<{ kpi: KPI }>(`/dash/kpi?window=1h`, { kpi: { success: 0, blocked: 0, p95_ms: 0 } }, [tab]);
@@ -94,14 +94,10 @@ export default function DashboardPage() {
         {/* 중앙 통계 (Overview) */}
         {tab === "overview" && (
           <>
-            <HudPanel title="Success Rate" className="col-span-1 row-span-1">
-              <HudStat value={(kpi.data.kpi.success * 100).toFixed(1)} unit="%" />
-            </HudPanel>
-            <HudPanel title="Blocked Rate" className="col-span-1 row-span-1">
-              <HudStat value={(kpi.data.kpi.blocked * 100).toFixed(1)} unit="%" />
-            </HudPanel>
-            <HudPanel title="P95 Latency" className="col-span-1 row-span-1">
-              <HudStat value={kpi.data.kpi.p95_ms.toString()} unit="ms" />
+            <HudPanel title="Key Performance Indicators" className="col-span-3 row-span-1 grid grid-cols-3 gap-4">
+               <HudStat title="Success Rate" value={(kpi.data.kpi.success * 100).toFixed(1)} unit="%" />
+               <HudStat title="Blocked Rate" value={(kpi.data.kpi.blocked * 100).toFixed(1)} unit="%" />
+               <HudStat title="P95 Latency" value={kpi.data.kpi.p95_ms.toString()} unit="ms" />
             </HudPanel>
             <HudPanel title="RAG Quality" className="col-span-1 row-span-3">
               <RagPanel />
