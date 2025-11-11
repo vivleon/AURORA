@@ -1,0 +1,8 @@
+{
+  "\ub0b4\uc77c \uc77c\uc815 \uc54c\ub824\uc918": {
+    "nlp.summarize": {
+      "alpha": 2.0,
+      "beta": 1.0
+    }
+  }
+}
