@@ -4,18 +4,40 @@ const nextConfig = {
   
   async rewrites() {
     return [
+      // [명시적 수정] /dash/, /aurora/ 등 API 경로만 8000번 포트로 전달합니다.
+      // Next.js 내부 파일(/_next/)과의 충돌을 방지합니다.
+      
+      // 1. /dash/kpi/ 등의 복합 경로
       {
-        // [수정] /_next/ 파일은 프록시하지 않고,
-        // /dash/, /aurora/, /events/, /docs/ 로 시작하는 API 경로만
-        // 백엔드(8000)로 정확히 전달합니다.
-        source: '/:path(dash|aurora|events|docs|consent)/:slug*', 
-        destination: 'http://127.0.0.1:8000/:path/:slug*',
+        source: '/dash/:path*', 
+        destination: 'http://127.0.0.1:8000/dash/:path*',
       },
       {
-        // 위 :slug*가 없는 단일 경로(예: /aurora/plan)를 위한 규칙
-        source: '/:path(dash|aurora|events|docs|consent)', 
+        source: '/aurora/:path*',
+        destination: 'http://127.0.0.1:8000/aurora/:path*',
+      },
+      {
+        source: '/events/:path*',
+        destination: 'http://127.0.0.1:8000/events/:path*',
+      },
+      {
+        source: '/docs/:path*', // RAG 문서 미리보기
+        destination: 'http://127.0.0.1:8000/docs/:path*',
+      },
+      {
+        source: '/consent/:path*',
+        destination: 'http://127.0.0.1:8000/consent/:path*',
+      },
+      {
+        source: '/system_info/:path*', // 환경 정보 API
+        destination: 'http://127.0.0.1:8000/system_info/:path*',
+      },
+
+      // 2. /dash, /aurora 와 같은 단일 경로 (예: /aurora/plan)
+      {
+        source: '/:path(dash|aurora|events|docs|consent|system_info)', 
         destination: 'http://127.0.0.1:8000/:path',
-      }
+      },
     ];
   }
 };
